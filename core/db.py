@@ -1,7 +1,9 @@
 """Small SQLite persistence layer for jobs, results, MCP registry and maintenance audit.
 
 Schema changes go through the versioned migration mechanism in
-``core/migrations.py`` — never through ad-hoc DDL here.
+``core/migrations.py`` — never through ad-hoc DDL here. This module is the
+single storage interface (ADR-0002): a future PostgreSQL backend implements
+the same surface.
 """
 from __future__ import annotations
 
@@ -23,10 +25,7 @@ def utcnow() -> str:
 class Database:
     def __init__(self, path: Optional[Path] = None) -> None:
         self.path = Path(path or config.database_path)
-        if str(self.path) == ":memory:":
-            # sqlite3 handles :memory: natively; parent-dir ops are skipped.
-            pass
-        else:
+        if str(self.path) != ":memory:":
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self.init_schema()
 
@@ -68,10 +67,28 @@ class Database:
         with self.connect() as conn:
             conn.execute(sql, params)
 
-    def event(self, actor: str, action: str, target_id: str | None, success: bool, details: dict[str, Any] | None = None) -> None:
+    def event(
+        self,
+        actor: str,
+        action: str,
+        target_id: str | None,
+        success: bool,
+        details: dict[str, Any] | None = None,
+        trace_id: str | None = None,
+    ) -> None:
+        """Append an audit event. Never log secrets, keys or tokens in ``details``."""
         self.execute(
-            "INSERT INTO registry_events(ts,actor,action,target_id,success,details_json) VALUES(?,?,?,?,?,?)",
-            (utcnow(), actor, action, target_id, int(success), json.dumps(details or {}, ensure_ascii=False, sort_keys=True)),
+            "INSERT INTO registry_events(ts,actor,action,target_id,success,details_json,trace_id) "
+            "VALUES(?,?,?,?,?,?,?)",
+            (
+                utcnow(),
+                actor,
+                action,
+                target_id,
+                int(success),
+                json.dumps(details or {}, ensure_ascii=False, sort_keys=True),
+                trace_id,
+            ),
         )
 
 

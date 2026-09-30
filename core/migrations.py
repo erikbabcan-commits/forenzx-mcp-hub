@@ -7,18 +7,17 @@ Design rules (see docs/architecture/adr/0002-sqlite-default.md):
   ``schema_migrations``.
 - Existing databases created before this mechanism are stamped as version 1
   (baseline schema) — no silent re-creation, no data loss.
-- Migrations must be idempotent-safe under the SQLite ``IF NOT EXISTS``
-  convention used in the baseline DDL so a stamped database can be re-verified.
+- Migration versions must be contiguous and append-only once shipped.
 """
 from __future__ import annotations
 
 import sqlite3
-from typing import Callable, List, Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 MigrationStep = Tuple[int, str, str]
 
 # ---------------------------------------------------------------------------
-# Baseline schema (version 1) — identical to the pre-migration init_schema().
+# Baseline schema (version 1) — the schema as of the v5 baseline commit.
 # Kept with IF NOT EXISTS so stamping an existing database is safe.
 # ---------------------------------------------------------------------------
 BASELINE_SCHEMA = """
@@ -93,8 +92,15 @@ CREATE TABLE IF NOT EXISTS job_results (
 # ---------------------------------------------------------------------------
 MIGRATIONS: List[MigrationStep] = [
     (1, "baseline_v5_schema", BASELINE_SCHEMA),
-    # Example for future changes (do NOT uncomment without shipping):
-    # (2, "add_job_case_index", "CREATE INDEX IF NOT EXISTS idx_jobs_case ON jobs(case_id);"),
+    (
+        2,
+        "mcp_trust_state_and_audit_trace",
+        """
+        ALTER TABLE mcp_servers ADD COLUMN trust_state TEXT NOT NULL DEFAULT 'UNVERIFIED';
+        ALTER TABLE mcp_servers ADD COLUMN tools_hash TEXT;
+        ALTER TABLE registry_events ADD COLUMN trace_id TEXT;
+        """,
+    ),
 ]
 
 LATEST_VERSION = MIGRATIONS[-1][0] if MIGRATIONS else 0
@@ -116,7 +122,7 @@ def current_version(conn: sqlite3.Connection) -> int:
     if not _table_exists(conn, "schema_migrations"):
         return 0
     row = conn.execute("SELECT MAX(version) AS v FROM schema_migrations").fetchone()
-    return int(row["v"] or 0) if row else 0
+    return int(row[0] or 0) if row else 0
 
 
 def _stamp(conn: sqlite3.Connection, version: int, name: str) -> None:
@@ -133,11 +139,8 @@ def migrate(conn: sqlite3.Connection) -> int:
     - Fresh database: applies all migrations in order.
     - Pre-migration database (schema present, no version table): stamps
       version 1 first, then applies anything newer.
-    - Version 0 with no schema and no version table but non-baseline tables:
-      treated as fresh (baseline DDL is IF NOT EXISTS-safe).
-
-    Runs each migration in its own transaction. Raises ``MigrationError`` if a
-    migration fails; the transaction for the failed step is rolled back.
+    - Runs each migration in its own transaction; a failed step rolls back
+      and raises ``MigrationError``.
     """
     applied = 0
     # Version bookkeeping table (kept outside MIGRATIONS so it always exists).
@@ -170,7 +173,10 @@ def migrate(conn: sqlite3.Connection) -> int:
             )
         try:
             conn.execute("BEGIN")
-            conn.executescript(sql)
+            for stmt in sql.split(";"):
+                stmt = stmt.strip()
+                if stmt:
+                    conn.execute(stmt)
             _stamp(conn, step_version, name)
             conn.commit()
         except Exception as exc:  # pragma: no cover - defensive path
@@ -199,7 +205,6 @@ def integrity_ok(conn: sqlite3.Connection, full: bool = False) -> Tuple[bool, st
     return ok, "; ".join(messages)
 
 
-# Re-exported for callers/tests that want the connect-time guard.
 __all__ = [
     "MIGRATIONS",
     "LATEST_VERSION",

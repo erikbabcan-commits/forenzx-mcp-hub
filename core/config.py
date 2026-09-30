@@ -80,11 +80,20 @@ class AppConfig(BaseSettings):
                 )
             for key in (*self.admin_api_keys, *self.api_keys):
                 lowered = key.lower()
-                if not key or lowered.startswith("change_me") or lowered in {
+                forbidden_values = {
                     "dev-admin-key", "dev-analyst-key", "changeme", "admin", "password", "secret", "test", "insecure",
-                }:
+                }
+                weak = (
+                    not key
+                    or lowered.startswith("change_me")
+                    or lowered in forbidden_values
+                    or any(x in lowered for x in ("change_me", "placeholder", "insecure", "dev-secret"))
+                    or self._secret_entropy_too_low(key)
+                )
+                if weak:
                     raise ValueError(
-                        "Production requires real per-deployment API keys; development and placeholder keys are rejected."
+                        "Production requires real per-deployment API keys; development, placeholder "
+                        "and low-entropy keys are rejected."
                     )
         else:
             if not self.jwt_secret_key:
@@ -97,11 +106,40 @@ class AppConfig(BaseSettings):
                 self.api_keys = ["dev-analyst-key"]
         return self
 
+    # Obviously weak placeholder substrings; production rejects all of them.
+    _FORBIDDEN_SECRET_SUBSTRINGS = (
+        "change_me", "changeme", "insecure", "dev-secret", "dev-jwt", "dev-hmac",
+        "placeholder", "example", "password", "default", "forenzx.local",
+    )
+
     @staticmethod
-    def _require_strong_secret(value: str, name: str) -> None:
+    def _secret_entropy_too_low(value: str) -> bool:
+        """Reject obviously low-entropy secrets (e.g. "a"*32, keyboard walks).
+
+        A 32+ char random value almost always has >= max(8, len/4) distinct
+        characters; repeated-character or single-symbol secrets do not.
+        """
+        distinct = len(set(value))
+        return distinct < max(8, len(value) // 4)
+
+    @classmethod
+    def is_obviously_weak_secret(cls, value: str) -> bool:
+        """Public helper: True if the value is a placeholder or low-entropy secret."""
         lowered = (value or "").lower()
-        if not value or len(value) < 32 or any(x in lowered for x in ("insecure", "change_me", "changeme", "dev-secret")):
-            raise ValueError(f"{name} must be a strong secret with at least 32 characters.")
+        return (
+            not value
+            or len(value) < 32
+            or any(x in lowered for x in cls._FORBIDDEN_SECRET_SUBSTRINGS)
+            or cls._secret_entropy_too_low(value)
+        )
+
+    @classmethod
+    def _require_strong_secret(cls, value: str, name: str) -> None:
+        if cls.is_obviously_weak_secret(value):
+            raise ValueError(
+                f"{name} must be a strong secret: at least 32 characters, high entropy, "
+                "free of placeholder patterns (dev-secret/default/insecure/...)."
+            )
 
 
 ForenzxConfig = AppConfig
