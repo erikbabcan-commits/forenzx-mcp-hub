@@ -1,9 +1,8 @@
 # CI gate — identical to `make verify`. NOT a release pipeline.
 name: CI
 
+# Runs on PR events only (opened/synchronize) — deliberate: no run spam per branch push.
 on:
-  push:
-    branches: [main, "hardening/**"]
   pull_request:
     branches: [main]
 
