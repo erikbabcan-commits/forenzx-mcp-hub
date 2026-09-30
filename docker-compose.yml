@@ -1,0 +1,31 @@
+services:
+  forenzx-mcp-hub:
+    build: .
+    container_name: forenzx-mcp-hub
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - forenzx_data:/data
+      - ./packs:/app/packs:ro
+      # Optional local forensic evidence / threat intel mounts:
+      # - /srv/forenzx/vault:/var/forensics/vault:ro
+      # - /srv/forenzx/threat-intel:/var/forensics/threat_intel:ro
+      # Docker worker mode requires Docker access. Prefer a separate worker service in production.
+      # - /var/run/docker.sock:/var/run/docker.sock
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=768m,noexec,nosuid,nodev
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  forenzx_data:

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>ForenZX MCP Hub</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">FX</div><div><strong>ForenZX</strong><span>MCP HUB v5</span></div></div>
+    <nav id="nav">
+      <button data-view="overview" class="active">Overview</button>
+      <button data-view="servers">MCP Servers</button>
+      <button data-view="packs">Forensic Packs</button>
+      <button data-view="jobs">Jobs</button>
+      <button data-view="maintenance">Maintenance</button>
+      <button data-view="audit">Audit</button>
+    </nav>
+    <div class="side-footer">
+      <div class="status-line"><i id="apiDot" class="dot"></i><span id="apiStatus">Locked</span></div>
+      <button id="changeKey" class="link-btn">Change admin key</button>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div><h1 id="pageTitle">Overview</h1><p id="pageSub">Control plane, forensic engine and remote MCP registry.</p></div>
+      <div class="top-actions"><button id="refreshAll" class="btn ghost">Refresh</button><button id="addServerTop" class="btn primary">+ Add MCP server</button></div>
+    </header>
+
+    <section id="flash" class="flash hidden"></section>
+
+    <section id="view-overview" class="view active">
+      <div class="cards" id="overviewCards"></div>
+      <div class="grid2">
+        <article class="panel"><div class="panel-head"><h2>Registered MCP servers</h2><span class="muted">live registry</span></div><div id="overviewServers"></div></article>
+        <article class="panel"><div class="panel-head"><h2>Forensic packs</h2><span class="muted">fail closed</span></div><div id="overviewPacks"></div></article>
+      </div>
+      <article class="panel"><div class="panel-head"><h2>Recent jobs</h2><span class="muted">persistent SQLite</span></div><div id="overviewJobs"></div></article>
+    </section>
+
+    <section id="view-servers" class="view">
+      <article class="panel">
+        <div class="panel-head"><div><h2>MCP server registry</h2><p>Add any remote MCP endpoint and manage it from one place.</p></div><button id="addServerInline" class="btn primary">+ Add server</button></div>
+        <div class="toolbar"><input id="serverSearch" placeholder="Search name, URL, type or tag"><select id="serverFilter"><option value="all">All states</option><option>READY</option><option>DOWN</option><option>UNKNOWN</option><option>DISABLED</option></select></div>
+        <div class="table-wrap"><table><thead><tr><th>Status</th><th>Server</th><th>Type</th><th>Endpoint</th><th>Latency</th><th>Tools</th><th>Actions</th></tr></thead><tbody id="serverRows"></tbody></table></div>
+      </article>
+    </section>
+
+    <section id="view-packs" class="view">
+      <article class="panel"><div class="panel-head"><div><h2>Forensic pack registry</h2><p>Invalid or placeholder image digests are disabled automatically.</p></div><button id="reloadPacks" class="btn ghost">Reload packs</button></div><div id="packList" class="stack"></div></article>
+    </section>
+
+    <section id="view-jobs" class="view">
+      <article class="panel"><div class="panel-head"><div><h2>Analysis jobs</h2><p>Durable job metadata survives service restarts.</p></div></div><div class="table-wrap"><table><thead><tr><th>State</th><th>Job</th><th>Case / Evidence</th><th>Pack</th><th>Progress</th><th>Updated</th></tr></thead><tbody id="jobRows"></tbody></table></div></article>
+    </section>
+
+    <section id="view-maintenance" class="view">
+      <div class="cards" id="maintenanceCards"></div>
+      <div class="grid3">
+        <article class="panel action-card"><h2>Database backup</h2><p>Create a point-in-time copy of the registry and job database.</p><button id="backupDb" class="btn primary">Create backup</button></article>
+        <article class="panel action-card"><h2>Vacuum SQLite</h2><p>Compact the database and reclaim unused pages.</p><button id="vacuumDb" class="btn ghost">Run vacuum</button></article>
+        <article class="panel action-card"><h2>Prune audit events</h2><p>Delete registry events older than the selected retention period.</p><div class="inline"><input id="pruneDays" type="number" min="1" max="3650" value="30"><button id="pruneAudit" class="btn ghost">Prune</button></div></article>
+      </div>
+      <article class="panel"><div class="panel-head"><h2>Registry export</h2><span class="muted">secrets are never included</span></div><button id="exportRegistry" class="btn ghost">Download JSON export</button></article>
+    </section>
+
+    <section id="view-audit" class="view">
+      <article class="panel"><div class="panel-head"><div><h2>Operations audit</h2><p>Management actions, probes and maintenance events.</p></div></div><div class="table-wrap"><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Result</th><th>Details</th></tr></thead><tbody id="auditRows"></tbody></table></div></article>
+    </section>
+  </main>
+</div>
+
+<div id="keyModal" class="modal open"><div class="modal-card small"><h2>Unlock MCP Hub</h2><p>Enter an admin API key. The key stays in this browser tab only.</p><label>Admin API key<input id="adminKey" type="password" autocomplete="off" placeholder="dev-admin-key"></label><div class="modal-actions"><button id="unlock" class="btn primary">Unlock dashboard</button></div><p class="hint">Development default: <code>dev-admin-key</code>. Change it before production.</p></div></div>
+
+<div id="serverModal" class="modal"><div class="modal-card wide"><div class="modal-title"><div><h2 id="serverModalTitle">Add MCP server</h2><p>Register a remote MCP endpoint. Secrets are encrypted at rest.</p></div><button class="icon-btn" data-close="serverModal">×</button></div>
+<form id="serverForm">
+  <input type="hidden" id="serverId">
+  <div class="form-grid">
+    <label>Name<input id="serverName" required maxlength="120" placeholder="ForenZX Worker MCP"></label>
+    <label>Type<select id="serverType"><option value="generic">Generic</option><option value="forenzx">ForenZX</option><option value="filesystem">Filesystem</option><option value="github">GitHub</option><option value="database">Database</option><option value="browser">Browser</option><option value="custom">Custom</option></select></label>
+    <label class="span2">MCP endpoint URL<input id="serverUrl" required type="url" placeholder="https://example.com/mcp"></label>
+    <label>Transport<select id="serverTransport"><option value="streamable_http">Streamable HTTP</option><option value="legacy_jsonrpc">Legacy JSON-RPC</option></select></label>
+    <label>Auth<select id="serverAuthType"><option value="none">None</option><option value="bearer">Bearer token</option><option value="api_key">X-API-Key</option></select></label>
+    <label class="span2">Secret<input id="serverSecret" type="password" autocomplete="new-password" placeholder="Leave blank to keep existing secret"></label>
+    <label class="span2">Maintenance URL <span class="muted">optional</span><input id="serverMaintenance" type="url" placeholder="https://example.com/internal/maintenance"></label>
+    <label class="span2">Tags<input id="serverTags" placeholder="prod, forensics, mobile"></label>
+    <label class="span2">Notes<textarea id="serverNotes" rows="3" maxlength="4000" placeholder="Purpose, owner, deployment notes…"></textarea></label>
+  </div>
+  <div class="modal-actions"><label class="check"><input id="serverEnabled" type="checkbox" checked> Enabled</label><div class="grow"></div><button type="button" class="btn ghost" data-close="serverModal">Cancel</button><button type="submit" class="btn primary">Save server</button></div>
+</form></div></div>
+
+<div id="toolsModal" class="modal"><div class="modal-card wide"><div class="modal-title"><div><h2 id="toolsTitle">MCP tools</h2><p>Discovered directly from <code>tools/list</code>.</p></div><button class="icon-btn" data-close="toolsModal">×</button></div><pre id="toolsContent" class="codebox"></pre></div></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

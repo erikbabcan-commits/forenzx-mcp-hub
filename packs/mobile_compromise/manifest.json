@@ -1,0 +1,25 @@
+{
+  "id": "mobile_compromise",
+  "name": "Mobile Forensic Analysis (MVT)",
+  "version": "2.3.2",
+  "description": "Mobile Verification Toolkit for iOS and Android forensic analysis with STIX2 IoC matching",
+  "license": "MIT",
+  "author": "ForenZX Engineering Team",
+  "supported_platforms": ["ios", "android"],
+  "supported_inputs": ["ios_backup", "android_backup"],
+  "capabilities": [
+    "ioc_matching",
+    "spyware_detection",
+    "file_analysis",
+    "timeline_analysis"
+  ],
+  "container_image": "ghcr.io/mvt-project/mvt",
+  "pinned_image_digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  "read_only_strictly_enforced": true,
+  "network_required": false,
+  "max_memory_mb": 4096,
+  "max_cpu_cores": 2.0,
+  "timeout_seconds": 3600,
+  "healthcheck_cmd": ["mvt-ios", "--version"],
+  "enabled": true
+}
