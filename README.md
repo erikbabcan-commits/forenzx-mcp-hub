@@ -224,37 +224,61 @@ Keep deterministic forensic evidence separate from model interpretation.
 ## 12. Repository structure
 
 ```text
-core/       control plane + evidence-plane services (FastAPI app, MCP engine, registries, jobs, vault, signing, migrations)
-packs/      forensic packs (adapters + manifests)
-workers/    sandboxed forensic worker pool and Docker hardening
-tests/      pytest suite (incl. database baseline, migrations, backup/restore, production-rejection gates)
-scripts/    first-run secret generation, security scan, import matrix verification
+.github/        CI workflow, Dependabot, CODEOWNERS, issue templates
+core/           control plane: API, MCP server, registry, ACL, jobs, audit, maintenance
+packs/          deterministic forensic packs (evidence plane)
+workers/        worker pool and forensic isolation (evidence plane)
+tests/           unit / integration / security / e2e test suites
+scripts/        first-run, security scan, import matrix verification
 docs/
-  architecture/   ARCHITECTURE, COMPONENTS, DATA_FLOW, ADRs, AI-studio & registry docs
-  security/       TRUST_BOUNDARIES, THREAT_MODEL, AI_EVIDENCE_BOUNDARY, SECURITY-BOUNDARIES
-  operations/     RUNBOOK, BACKUP_RESTORE
-  deployment/     PRODUCTION
-  audit/          ENTERPRISE_BASELINE, PHASE1_RESULT
-  archive/v4/     historical v4 documents (not part of runtime)
-.github/    CI workflow, issue templates, Dependabot config, CODEOWNERS
+├── architecture/   ARCHITECTURE, COMPONENTS, DATA_FLOW, ADRs 0001–0006
+├── security/       TRUST_BOUNDARIES, THREAT_MODEL, AI_EVIDENCE_BOUNDARY, AUDIT_MODEL
+├── operations/     RUNBOOK, BACKUP_RESTORE
+├── deployment/     PRODUCTION
+├── audit/          ENTERPRISE_BASELINE, PHASE2_BACKLOG, PHASE1_RESULT
+└── archive/v4/     historical v4 documents
 ```
 
-## 13. Development commands
+Root files: `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CHANGELOG.md`,
+`LICENSE-TODO.md` (license unresolved — manual blocker), `Makefile`,
+`.env.example`, `.pre-commit-config.yaml`, `.editorconfig`, `.gitattributes`,
+`.gitignore`, `.dockerignore`, `.secrets.baseline`.
 
-The project uses Poetry. `make verify` is the local equivalent of CI:
+## 13. Developer commands
 
 ```bash
-make install        # poetry install (requires poetry.lock — see CHANGELOG/PHASE1_RESULT)
+make install        # poetry install (run 'make lock' first to create poetry.lock)
 make lint           # ruff check
+make format         # ruff format
 make format-check   # ruff format --check
 make typecheck      # mypy core
 make test           # pytest -q
-make security       # scripts/security_scan.py
-make verify         # all of the above, CI-equivalent
-make run            # local uvicorn
-make docker-build   # docker compose build
-make backup         # consistent SQLite snapshot into BACKUPS_DIR
-make db-check       # PRAGMA quick_check on the live database
+make security       # repository security scan
+make verify         # local CI-equivalent quality gates
+make run            # start the API locally
+make docker-build   # build the production image
+make compose-check  # validate docker compose config
+make backup         # consistent SQLite backup with SHA-256 manifest
+make db-check       # database integrity + schema version check
 ```
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing schema (`core/migrations.py`), packs, or anything touching evidence integrity.
+`make verify` is the local equivalent of CI. If Docker is unavailable,
+compose/docker checks report NOT_VERIFIED — they never silently pass.
+
+## 14. Security & architecture docs
+
+- Architecture & planes: [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md)
+- ADRs (incl. AI-not-evidence, SQLite default, no Docker socket, MCP trust model):
+  [`docs/architecture/adr/`](docs/architecture/adr/)
+- Trust boundaries & threat model: [`docs/security/TRUST_BOUNDARIES.md`](docs/security/TRUST_BOUNDARIES.md)
+- AI / evidence boundary: [`docs/security/AI_EVIDENCE_BOUNDARY.md`](docs/security/AI_EVIDENCE_BOUNDARY.md)
+- Reporting vulnerabilities: [`SECURITY.md`](SECURITY.md)
+
+## 15. Remote MCP trust model
+
+Every new remote MCP server is registered as `UNVERIFIED`. Health probes
+show liveness only — **HEALTHY is not TRUSTED**. Trust is granted explicitly
+by an admin via `PUT /api/v1/mcp-servers/{id}/trust` (states: `UNVERIFIED`,
+`TRUSTED`, `QUARANTINED`, `DISABLED`) and every transition is audited with a
+trace id. See
+[`docs/architecture/adr/0006-remote-mcp-trust-model.md`](docs/architecture/adr/0006-remote-mcp-trust-model.md).

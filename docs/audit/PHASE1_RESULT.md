@@ -1,84 +1,141 @@
-# Phase 1 Result — Enterprise Repository Baseline
+# FORENZX MCP HUB — PHASE 1 RESULT
 
-Branch: `hardening/enterprise-foundation` (from `main` @ `b48d204`)
-
-## FILES CHANGED
-
-**Added (39)**
-- `docs/audit/ENTERPRISE_BASELINE.md` — 20-area audit with severity classifications (0 CRITICAL, 4 HIGH, 16 MEDIUM)
-- `docs/architecture/ARCHITECTURE.md`, `COMPONENTS.md`, `DATA_FLOW.md`
-- `docs/architecture/adr/0001-control-evidence-separation.md` … `0005-fail-closed-pack-validation.md` (5 ADRs)
-- `docs/security/TRUST_BOUNDARIES.md`, `THREAT_MODEL.md`, `AI_EVIDENCE_BOUNDARY.md`
-- `docs/operations/RUNBOOK.md`, `BACKUP_RESTORE.md`
-- `docs/deployment/PRODUCTION.md`
-- `core/migrations.py` — versioned migration mechanism (schema_migrations table, ordered append-only steps, legacy stamping)
-- `tests/test_database_baseline.py` — bootstrap, migration, backup→restore→integrity, production-rejection gates (19 tests)
-- `.github/workflows/ci.yml`, `.github/dependabot.yml`, `.github/CODEOWNERS`, `.github/ISSUE_TEMPLATE/{bug_report,feature_request}.md`
-- `.pre-commit-config.yaml`, `.secrets.baseline`, `Makefile`, `SECURITY.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `LICENSE-TODO.md`, `CODE_OF_CONDUCT.md`, `.editorconfig`, `.gitattributes`, `.dockerignore`
-
-**Changed (5)**
-- `core/db.py` — schema now applied via `core/migrations.migrate()`; `PRAGMA busy_timeout=10000`; `schema_version()` accessors
-- `core/maintenance.py` — `backup_database()` uses the SQLite Online Backup API (WAL-consistent, was `shutil.copy2` on live file); added `verify_backup()`, `database_integrity_check()`
-- `core/config.py` — production/staging now also rejects dev/placeholder API keys and memory-only `DATABASE_PATH` (fail-closed)
-- `README.md` — updated moved-doc links, added repository-structure and dev-commands sections
-- `.gitignore` — Poetry/scratch additions
-
-**Moved (12) — content unchanged, only path**
-- `FINAL_VERDICT.md`, `RELEASE_CHECKS.txt`, `SUMMARY.txt`, `docs/V4-TO-V5-MIGRATION.md` → `docs/archive/v4/`
-- `docs/legacy-v4/*` (5 files) → `docs/archive/v4/legacy-v4/`
-- `docs/{GOOGLE-AI-STUDIO,MCP-MANAGER,PACK-REGISTRY}.md` → `docs/architecture/`
-- `docs/SECURITY-BOUNDARIES.md` → `docs/security/`
-
-No file was deleted outright; every move was reference-checked first (no runtime, test or script references to the old paths — only two README links, updated).
+Baseline commit: `b48d204`
+Branch: `hardening/enterprise-foundation`
+Final commit: head of `hardening/enterprise-foundation` (see PR)
 
 ## ARCHITECTURE CHANGES
-- The three planes (CONTROL / EVIDENCE / INTELLIGENCE) are now explicit, documented architecture with enforcement points, component inventory and data-flow diagrams.
-- **No behavioral change to forensic logic.** Fail-closed semantics, AI≠EVIDENCE, vault, signing, workers and pack registry are untouched except where noted under SECURITY CHANGES. All existing tools, routes, schemas and models preserved.
-- Database schema is now migration-managed (ADR-0002). `init_schema()` semantics preserved for existing databases: a v5 database without a version table is stamped as version 1, data intact (verified by an offline harness and automated tests).
+- Formalized three planes (CONTROL / EVIDENCE / INTELLIGENCE) with
+  documentation, trust boundaries and ADRs 0001–0006.
+- Remote MCP trust model implemented: `UNVERIFIED` default, explicit admin
+  trust endpoint, `HEALTHY != TRUSTED`, `tools_hash` drift tracking,
+  audited trust transitions with `trace_id`.
+- Database schema versioned (`core/migrations.py`, v1 baseline + v2 trust
+  columns); ad-hoc startup DDL removed. Each migration runs in a single
+  transaction with gap/future-version rejection (fail closed).
+- Job restart recovery: unclean-restart `RUNNING` jobs → `FAILED`
+  (`error_code=INTERRUPTED_BY_RESTART`), audited.
+- Backups use the SQLite online backup API + SHA-256 manifest with
+  tamper detection (`verify_backup`, `database_integrity_check`).
+- Repository layout normalized; historical v4 documents moved to
+  `docs/archive/v4/`; tests organized into
+  `tests/{unit,integration,security,e2e}`.
 
-## SECURITY CHANGES
-- **Backup integrity (audit D-2, HIGH — fixed):** live-file copies under WAL could be torn/lose data; now Online Backup API + verification helper.
-- **Production hard-rejection (audit AU/AZ-related):** dev credentials (`dev-admin-key`, `dev-analyst-key`), placeholder keys (`CHANGE_ME…`), weak secrets and `DATABASE_PATH=:memory:` are refused at startup in production/staging.
-- **CI + supply chain (audit TE-1/CI-1/SC-1/SC-2, HIGH — fixed):** CI gate identical to `make verify`; Dependabot (pip/actions/docker); pre-commit with ruff, YAML/whitespace/EOF checks, large-file protection (evidence must never enter the repo) and detect-secrets with forensic-path exclusions.
-- `security_scan.py` still reports **0 findings**; introduced no new `CHANGE_ME`-class literals (the new config rejection logic uses lowercase `change_me` substring semantics, kept scan-clean).
+## FILES ADDED
+- Migrations/trust/recovery code: `core/migrations.py` (+ v2), trust model in
+  `core/mcp_registry.py`, trust endpoint in `core/main.py`, backup manifest
+  in `core/maintenance.py`, entropy/placeholder checks in `core/config.py`.
+- Tests: `tests/security/test_database_baseline.py`,
+  `tests/integration/test_restart_recovery.py`,
+  `tests/security/test_mcp_trust.py`, `tests/unit/test_config_hardening.py`.
+- Root: `Makefile`, `SECURITY.md`, `CONTRIBUTING.md`, `CHANGELOG.md`,
+  `LICENSE-TODO.md` (license unresolved = manual blocker), `.editorconfig`,
+  `.gitattributes`, `.dockerignore`, `.pre-commit-config.yaml`,
+  `.secrets.baseline`.
+- `.github/`: `workflows/ci.yml`, `dependabot.yml`, `CODEOWNERS`,
+  `ISSUE_TEMPLATE/`.
+- Docs: `architecture/` (ARCHITECTURE, COMPONENTS, DATA_FLOW, ADR 0001–0006),
+  `security/` (TRUST_BOUNDARIES, THREAT_MODEL, AI_EVIDENCE_BOUNDARY,
+  AUDIT_MODEL), `operations/` (RUNBOOK, BACKUP_RESTORE),
+  `deployment/PRODUCTION.md`, `audit/` (ENTERPRISE_BASELINE,
+  PHASE2_BACKLOG, this file).
+- Reorganized copies of all previously flat tests under
+  `tests/{unit,integration,security,e2e}/` with `__init__.py` files.
 
-## TESTS EXECUTED (this environment)
+## FILES MOVED
+- `FINAL_VERDICT.md`, `RELEASE_CHECKS.txt`, `SUMMARY.txt`, v4 migration and
+  legacy docs → `docs/archive/v4/` (13 historical files; runtime references
+  were checked before each move, links updated).
+- `tests/*.py` → categorized subdirectories (same test functions, updated
+  paths).
 
-| Check | Command | Result |
+## FILES REMOVED
+- None beyond the historical-doc moves (originals deleted from their old
+  locations after the moves). No runtime or test file was deleted.
+
+## DATABASE CHANGES
+- New `schema_migrations` bookkeeping table; `PRAGMA user_version` retained
+  via version stamping.
+- Migration v2: `mcp_servers.trust_state` (default `UNVERIFIED`),
+  `mcp_servers.tools_hash`, `registry_events.trace_id`.
+- Connections enforce `foreign_keys=ON`, WAL, `busy_timeout=10000`.
+- Legacy pre-migration databases are stamped v1 and upgraded (no silent
+  re-creation, no data loss).
+
+## DEPENDENCY CHANGES
+- No runtime dependency upgrades (only added dev tooling config: ruff/mypy
+  rules in `pyproject.toml`, pre-commit hooks).
+- `poetry.lock` is still generated in CI; a maintainer must run
+  `make lock` and commit the lockfile (see NOT VERIFIED).
+
+## TESTS EXECUTED
+
+Locally executable in this environment (results are real):
+
+| COMMAND | EXIT CODE | RESULT |
 |---|---|---|
-| Byte-compilation, all packages + tests | `python3 -m compileall -q core packs workers tests scripts` | **PASS** (exit 0) |
-| Migrations offline harness (fresh bootstrap, idempotency, legacy stamping, gap rejection, integrity) | stdlib-only driver over `core/migrations.py` | **PASS** (all assertions green) |
-| Production-rejection logic presence (placeholder keys, dev keys, memory-only DB in validator AST) | source inspection | **PASS** |
-| Security scan | `python3 scripts/security_scan.py` | **PASS — 0 findings** |
-| JSON validity (baseline, pack manifest) | `json.load` | **PASS** |
-| Makefile tab indentation | `grep -Pn '^\t'` | **PASS** |
+| `python3 -m compileall -q core packs workers tests scripts` | 0 | VERIFIED |
+| Offline migration harness (fresh bootstrap→v2, v1 stamp→v2, idempotent re-run, future-version rejection) | 0 | VERIFIED |
+| `python3 scripts/security_scan.py` | 0 | VERIFIED (0 findings) |
 
-**NOT executed here** (sandbox forbids package installation, so third-party tooling is unavailable): `poetry lock`, `poetry install`, `ruff check`, `ruff format --check`, `mypy core`, `pytest -q`. CI (`.github/workflows/ci.yml`) runs exactly these and is the authoritative gate. Nothing is reported as PASS without execution.
+| COMMAND | EXIT CODE | RESULT |
+|---|---|---|
+| `poetry lock` / `poetry install` | — | NOT_VERIFIED (no package installs possible in this environment) |
+| `ruff check .` / `ruff format --check .` | — | NOT_VERIFIED (tool unavailable locally; runs in CI) |
+| `mypy core` | — | NOT_VERIFIED (tool unavailable locally; runs in CI) |
+| `pytest -q` | — | NOT_VERIFIED (dependencies unavailable locally; new tests follow existing patterns; runs in CI) |
+| `docker compose config` | — | NOT_VERIFIED (no Docker daemon) |
+| `docker build .` | — | NOT_VERIFIED (no Docker daemon) |
 
-## EXIT CODES
-- `compileall`: 0
-- migrations offline harness: 0 (all asserts passed)
-- `scripts/security_scan.py`: 0 (0 findings)
-- AST verification snippets: 0
-- All other gates: **NOT RUN in this environment** (see above) — CI must confirm.
+CI (`.github/workflows/ci.yml` on the branch) is the authoritative gate for
+the NOT_VERIFIED commands.
 
-## KNOWN LIMITATIONS
-1. `poetry.lock` is not committed (see NOT VERIFIED). CI generates it in-job until a maintainer runs `make lock` and commits it.
-2. `.secrets.baseline` is a valid empty placeholder that must be regenerated with a real detect-secrets run.
-3. The pre-commit config pins remote hook revisions (ruff-pre-commit v0.6.9, pre-commit-hooks v5.0.0, detect-secrets v1.5.0) that were not executable here.
-4. Audit findings not addressed by design in this phase: AZ-1 (persisted case ACL — authz still in-memory, fail-closed), R-1 (SSRF egress allowlist), AL-1 (audit tamper-evidence), P-1 (pack adapters are in-process trusted code), DS-1 (Dockerfile dependency ranges until lockfile-based build). These are tracked in `ENTERPRISE_BASELINE.md` as the next-phase backlog; none was papered over.
-5. Python stays 3.11 (no 3.12 migration — no functional need, no verified benefit; audit DE-3 INFO).
+## SECURITY FINDINGS FIXED
+- D-1/D-2 (HIGH): no versioned migrations → migration framework + tests.
+- J-2 (HIGH): stuck RUNNING jobs → audited INTERRUPTED_BY_RESTART recovery.
+- R-2 (HIGH): HEALTHY==TRUSTED implicit → explicit trust model.
+- T-2 (HIGH): no bootstrap/backup/recovery tests → added.
+- CI-1 (HIGH): no CI → workflow with lint/type/test/compose gates.
+- AU-2 (MEDIUM): weak/placeholder secrets pass length gate →
+  placeholder + entropy rejection, fail closed.
+- D-0 (MEDIUM): pragmas not enforced → enforced per connection.
+- DS-1 partial (MEDIUM): Dockerfile non-deterministic pip ranges →
+  documented; pinned install via lockfile path in CI.
+
+## REMAINING CRITICAL
+- None identified.
+
+## REMAINING HIGH (Phase 2 backlog)
+- R-1: SSRF / DNS rebinding on remote MCP probe egress.
+- SS-1: supply-chain scanning (CodeQL, dependency review, container
+  scanning, provenance).
+- DE-1: checked-in `poetry.lock` still missing (CI generates in-job).
 
 ## NOT VERIFIED
-- Full pytest suite (incl. the 13 pre-existing test files) — requires installed dependencies; CI gate.
-- `ruff` / `mypy` cleanliness of new files.
-- `poetry lock`/`poetry install` reproducibility on a clean checkout (dependency: network + poetry).
-- YAML files (`ci.yml`, `dependabot.yml`, `.pre-commit-config.yaml`) validated only by inspection, not by a YAML parser.
-- Docker build (`make docker-build`) — no Docker daemon in the audit environment.
-- GitHub Actions workflow execution — first run on the branch must be observed.
+- All Poetry/Ruff/mypy/pytest/Docker commands above (environment
+  cannot install packages or run Docker; CI will verify).
+- Full pytest suite pass (new tests written to existing patterns and
+  stdlib-verifiable logic was harness-tested, but pytest itself not run).
+- GitHub Actions workflow execution on GitHub (pushed, not yet observed).
+- Alembic was NOT adopted — the in-repo migration list was judged
+  sufficient and lighter for SQLite; revisitable if PostgreSQL lands.
 
-## NEXT PHASE
-1. **Green CI:** run the branch's CI; fix any ruff/mypy/pytest finding it surfaces; commit the generated `poetry.lock` (closes audit DE-1/TE-1/CI-1).
-2. Address HIGH/MEDIUM backlog by priority: AZ-1 persisted case ACL (new migration), R-1 registry egress allowlist, AL-1 audit tamper-evidence.
-3. Decide the license (LICENSE-TODO.md) and set branch protection + required status checks on `main`.
-4. Only after the baseline is fully green: production deployment (docs/deployment/PRODUCTION.md) and any release pipeline.
+## PHASE 2 BLOCKERS
+- Merge this branch to main after CI is green.
+- Commit `poetry.lock` (maintainer, `make lock`).
+- Resolve LICENSE (`LICENSE-TODO.md`).
+- Then PHASE2_BACKLOG.md items (SSRF, AEAD credentials, RBAC, audit hash
+  chaining, dashboard sessions/CSRF/XSS, rate limiting, supply-chain CI).
+
+## FINAL STATUS
+- Local stdlib-verifiable gates: VERIFIED
+- Poetry/ruff/mypy/pytest/Docker gates: NOT_VERIFIED (deferred to CI — by
+  design, not silently passed)
+- CRITICAL findings: 0
+- License: unresolved (manual blocker, documented)
+
+Because the environment cannot execute the full toolchain, the honest
+conclusion of Phase 1 is:
+
+PHASE 1: COMPLETE (pending CI green)
+READY FOR SECURITY HARDENING: YES — once CI confirms the NOT_VERIFIED gates
