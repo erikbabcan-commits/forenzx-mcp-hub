@@ -147,11 +147,39 @@ class TestPackRegistry:
         # Unknown pack
         assert registry.get_pack("nonexistent_pack") is None
 
-    def test_placeholder_digest_disables_mobile_pack(self):
-        """The shipped placeholder digest must be visible but disabled until pinned."""
-        record = next(x for x in pack_registry.describe() if x["id"] == "mobile_compromise")
+    def test_placeholder_digest_disables_pack(self, temp_packs_dir):
+        """A placeholder digest must disable the pack fail-closed."""
+        dummy_dir = temp_packs_dir / "placeholder_pack"
+        dummy_dir.mkdir()
+        manifest = {
+            "id": "placeholder_pack",
+            "name": "Placeholder Pack",
+            "version": "1.0.0",
+            "description": "Placeholder",
+            "license": "MIT",
+            "author": "Test",
+            "supported_platforms": ["linux"],
+            "supported_inputs": ["ios_backup"],
+            "capabilities": ["test"],
+            "container_image": "test-img",
+            "pinned_image_digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            "enabled": True,
+        }
+        with open(dummy_dir / "manifest.json", "w") as f:
+            json.dump(manifest, f)
+        reg = PackRegistry()
+        reg.packs_dir = temp_packs_dir
+        reg.load_packs()
+        record = next(x for x in reg.describe() if x["id"] == "placeholder_pack")
         assert record["enabled"] is False
         assert record["registry_error"]
+        assert "ios_backup" in record["supported_inputs"]
+
+    def test_mobile_compromise_pack_enabled_with_real_digest(self):
+        """Mobile compromise pack with real pinned digest must be enabled."""
+        record = next(x for x in pack_registry.describe() if x["id"] == "mobile_compromise")
+        assert record["enabled"] is True
+        assert not record["registry_error"]
 
     def test_pack_adapter_unknown(self):
         """Unknown pack adapter must return None."""
@@ -159,10 +187,6 @@ class TestPackRegistry:
 
         assert adapter is None
 
-    def test_supported_inputs_visible_for_disabled_pack(self):
-        record = next(x for x in pack_registry.describe() if x["id"] == "mobile_compromise")
-        assert "ios_backup" in record["supported_inputs"]
-        assert "android_backup" in record["supported_inputs"]
 
 
 class TestPackManifest:

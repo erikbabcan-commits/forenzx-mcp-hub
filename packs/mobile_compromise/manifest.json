@@ -14,7 +14,7 @@
     "timeline_analysis"
   ],
   "container_image": "ghcr.io/mvt-project/mvt",
-  "pinned_image_digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  "pinned_image_digest": "sha256:7c38342df762af695e31ce2c59a1ca5274a94192b7d4fe1acb08c46b190e4712",
   "read_only_strictly_enforced": true,
   "network_required": false,
   "max_memory_mb": 4096,
