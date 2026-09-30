@@ -44,6 +44,7 @@ jobs:
 
       - name: Run gates and record report
         run: |
+          set +e
           {
             echo "=== ruff check ==="
             poetry run ruff check . ; echo "exit=$?"
