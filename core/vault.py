@@ -89,7 +89,7 @@ class EvidenceVault:
         total_size = 0
         root_hasher = hashlib.sha256()
 
-        for file_p in sorted([p for p in dir_path.rglob("*") if p.is_file()]):
+        for file_p in sorted([p for p in dir_path.glob("**/*") if p.is_file()]):
             # Skip symlinks
             if file_p.is_symlink():
                 raise SecurityPathError(f"Symlink found in evidence directory: {file_p}")

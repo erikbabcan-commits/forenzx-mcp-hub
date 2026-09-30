@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, List, Literal
+from typing import Any, ClassVar, List, Literal, Tuple
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -115,7 +115,7 @@ class AppConfig(BaseSettings):
         return self
 
     # Obviously weak placeholder substrings; production rejects all of them.
-    _FORBIDDEN_SECRET_SUBSTRINGS = (
+    _FORBIDDEN_SECRET_SUBSTRINGS: ClassVar[Tuple[str, ...]] = (
         "change_me",
         "changeme",
         "insecure",

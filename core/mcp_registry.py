@@ -6,7 +6,7 @@ import base64
 import hashlib
 import json
 import time
-from typing import Any, Literal
+from typing import Any, List, Literal
 from uuid import uuid4
 
 import httpx
@@ -163,8 +163,8 @@ class MCPRegistry:
             "auth_type": "auth_type",
             "notes": "notes",
         }
-        sets: list[str] = []
-        values: list[Any] = []
+        sets: List[str] = []
+        values: List[Any] = []
         for key, column in mapping.items():
             if key in data:
                 val = data[key]
@@ -248,7 +248,7 @@ class MCPRegistry:
     async def _rpc(
         self, row: dict[str, Any], method: str, params: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], int]:
-        body = {"jsonrpc": "2.0", "id": f"hub-{int(time.time()*1000)}", "method": method}
+        body: dict[str, Any] = {"jsonrpc": "2.0", "id": f"hub-{int(time.time()*1000)}", "method": method}
         if params is not None:
             body["params"] = params
         started = time.perf_counter()
@@ -266,7 +266,7 @@ class MCPRegistry:
         if not row:
             raise KeyError(server_id)
         if not bool(row["enabled"]):
-            result = {"status": "DISABLED", "latency_ms": None, "error": None, "tools": []}
+            result: dict[str, Any] = {"status": "DISABLED", "latency_ms": None, "error": None, "tools": []}
             self._store_probe(server_id, result)
             return result
         try:
@@ -285,7 +285,7 @@ class MCPRegistry:
             return result
 
     @staticmethod
-    def _compute_tools_hash(tools: list[str]) -> str:
+    def _compute_tools_hash(tools: List[str]) -> str:
         """Stable hash of the advertised tool surface — drift detection input (Phase 2)."""
         import hashlib
 
@@ -309,7 +309,7 @@ class MCPRegistry:
             ),
         )
 
-    async def tools(self, server_id: str) -> list[dict[str, Any]]:
+    async def tools(self, server_id: str) -> List[dict[str, Any]]:
         row = self.get(server_id, public=False)
         if not row:
             raise KeyError(server_id)

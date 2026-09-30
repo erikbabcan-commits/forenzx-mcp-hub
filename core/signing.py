@@ -25,7 +25,10 @@ class Ed25519Signer:
 
     def _load_or_create(self) -> Ed25519PrivateKey:
         if self.key_path.exists():
-            return serialization.load_pem_private_key(self.key_path.read_bytes(), password=None)
+            key = serialization.load_pem_private_key(self.key_path.read_bytes(), password=None)
+            if not isinstance(key, Ed25519PrivateKey):
+                raise ValueError(f"Stored signing key is not Ed25519: {type(key).__name__}")
+            return key
         self.key_path.parent.mkdir(parents=True, exist_ok=True)
         key = Ed25519PrivateKey.generate()
         pem = key.private_bytes(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from fastapi import HTTPException
 
@@ -158,7 +158,8 @@ class MCPServer:
             spec = EvidenceInputSpec(
                 case_id=case_id,
                 evidence_id=evidence_id,
-                input_type=input_type,
+                # Runtime validation of the literal happens in EvidenceInputSpec (fail closed).
+                input_type=cast(Any, input_type),
                 claimed_sha256=claimed_sha256,
             )
             job_id, _, created = job_manager.create_job_ex(
@@ -207,10 +208,10 @@ class MCPServer:
             target_job_id = str(args.get("job_id") or "")
             if not target_job_id:
                 raise MCPError("Missing job_id parameter")
-            spec = job_manager.get_spec(target_job_id)
-            if not spec:
+            job_spec = job_manager.get_spec(target_job_id)
+            if not job_spec:
                 raise MCPError("Job not found")
-            CaseAccessController.enforce_job_access(user, target_job_id, spec.case_id)
+            CaseAccessController.enforce_job_access(user, target_job_id, job_spec.case_id)
 
             if name == "forenzx_analysis_status":
                 status = job_manager.get_status(target_job_id)
