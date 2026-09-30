@@ -24,21 +24,24 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Poetry
-        run: pipx install poetry
+      - name: Install Poetry (pinned for reproducibility)
+        run: pipx install poetry==2.5.1
 
-      - name: Install dependencies (reproducible via lockfile)
+      - name: Require committed poetry.lock
         run: |
-          if [ -f poetry.lock ]; then
-            poetry install --with dev
-          else
-            echo "::warning::poetry.lock missing — installing from pyproject (run 'make lock' and commit poetry.lock for reproducibility)"
-            poetry lock
-            poetry install --with dev
+          if [ ! -f poetry.lock ]; then
+            echo "::error::poetry.lock is missing. CI installs exclusively from the committed lockfile (no in-job resolution). Run 'make lock' locally and commit poetry.lock."
+            exit 1
           fi
 
+      - name: Install dependencies (lockfile only)
+        run: poetry install --with dev
+
+      - name: Lockfile consistency
+        run: poetry check --lock
+
       - name: Compile check
-        run: poetry run python -m compileall -q core packs workers
+        run: poetry run python -m compileall -q core packs workers tests scripts
 
       - name: Lint (ruff)
         run: poetry run ruff check .
@@ -57,3 +60,6 @@ jobs:
 
       - name: Validate docker compose file
         run: docker compose config -q
+
+      - name: Docker image build
+        run: docker build -t forenzx-mcp-hub:ci .

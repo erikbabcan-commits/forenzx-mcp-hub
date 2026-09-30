@@ -1,0 +1,75 @@
+# TEMPORARY one-shot bootstrap job (Phase 1.1).
+# Generates the committed poetry.lock, applies safe ruff autofixes + formatting,
+# and records the full gate report as a repo artifact for manual review.
+# This workflow is NOT a quality gate and will be deleted once CI is green.
+name: one-shot-lock-and-fix
+
+on:
+  push:
+    branches: ["hardening/**"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: oneshot-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry (pinned, same as CI)
+        run: pipx install poetry==2.5.1
+
+      - name: Generate lockfile if missing
+        run: |
+          if [ ! -f poetry.lock ]; then
+            poetry lock
+          fi
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Apply safe ruff autofixes and canonical formatting
+        run: |
+          poetry run ruff check . --fix || true
+          poetry run ruff format .
+
+      - name: Run gates and record report
+        run: |
+          {
+            echo "=== ruff check ==="
+            poetry run ruff check . ; echo "exit=$?"
+            echo
+            echo "=== ruff format --check ==="
+            poetry run ruff format --check . ; echo "exit=$?"
+            echo
+            echo "=== mypy core ==="
+            poetry run mypy core ; echo "exit=$?"
+            echo
+            echo "=== pytest ==="
+            poetry run pytest -q 2>&1 | tail -120 ; echo "pytest done"
+            echo
+            echo "=== security scan ==="
+            poetry run python scripts/security_scan.py
+            echo
+            echo "=== docker compose config ==="
+            docker compose config -q ; echo "exit=$?"
+          } > CI-GATE-REPORT.txt 2>&1
+          cat CI-GATE-REPORT.txt
+          true
+
+      - name: Commit lockfile, fixes and report
+        run: |
+          git config user.name "forenzx-ci-bootstrap"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(ci): bootstrap poetry.lock, safe ruff autofixes and gate report" || echo "nothing to commit"
+          git push
