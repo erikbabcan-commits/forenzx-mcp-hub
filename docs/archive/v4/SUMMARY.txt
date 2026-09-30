@@ -1,0 +1,51 @@
+================================================================================
+FORENZX MCP HUB v5 - BUILD SUMMARY
+================================================================================
+
+PROJECT: ForenZX MCP Hub v5
+VERSION: 5.0.0
+BUILD DATE: 2026-09-30
+
+IMPLEMENTED
+- Modern POST /mcp endpoint + v4 compatibility route
+- Canonical forenzx_* MCP tool namespace
+- Persistent SQLite jobs/results
+- Idempotent job creation
+- MCP Manager dashboard
+- Multi-server MCP registry
+- Encrypted bearer/API-key storage
+- Background tools/list health probing
+- Enable/disable/probe/tools/restart management actions
+- Safe maintenance: backup, VACUUM, prune, registry export
+- Pack digest overrides stored in SQLite
+- Placeholder digest auto-disable
+- Canonical Docker RepoDigest verification (repo@sha256 supported)
+- No short Docker ID fallback
+- Symlink-before-resolve vault hardening
+- HMAC v4 compatibility + Ed25519 execution signing
+- Security headers + production CORS allowlist
+- Google AI Studio / Gemini remote MCP integration guide
+- Dockerfile + docker-compose + first-run secret generator
+
+VERIFICATION ACTUALLY EXECUTED
+- python -m compileall core packs workers tests: PASS
+- node --check core/dashboard/app.js: PASS
+- pytest -q: 145/145 PASS
+- python scripts/security_scan.py: 0 CRITICAL/HIGH findings
+
+NOT EXECUTED IN THIS BUILD ENVIRONMENT
+- ruff: package unavailable
+- mypy: package unavailable
+- live Docker/MVT forensic smoke test: Docker SDK/daemon unavailable in build environment
+- live Gemini remote MCP call: no deployment URL / Gemini credential supplied
+
+IMPORTANT READINESS NOTE
+The bundled mobile_compromise manifest intentionally still contains the original placeholder
+image digest. v5 detects it and DISABLES that pack until a real canonical RepoDigest is entered
+through Dashboard -> Forensic Packs. The hub/dashboard itself remains operational.
+
+RUNTIME STATE
+No generated SQLite database, Ed25519 private key, API key, token, .env file or test secret is
+included in the release ZIP. They are created locally on first run.
+
+================================================================================

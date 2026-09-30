@@ -1,0 +1,10 @@
+# Default owner until a team/org exists
+* @erikbabcan-commits
+
+# Evidence-integrity-critical paths: every change needs review
+/core/vault.py        @erikbabcan-commits
+/core/signing.py      @erikbabcan-commits
+/core/migrations.py   @erikbabcan-commits
+/workers/             @erikbabcan-commits
+/packs/               @erikbabcan-commits
+/docs/security/       @erikbabcan-commits

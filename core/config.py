@@ -73,6 +73,19 @@ class AppConfig(BaseSettings):
             self._require_strong_secret(self.server_hmac_signing_key, "server_hmac_signing_key")
             if not self.admin_api_keys:
                 raise ValueError("Production requires at least one ADMIN_API_KEYS entry.")
+            db_path = str(self.database_path)
+            if db_path in {":memory:", ""} or db_path.startswith("file::memory:"):
+                raise ValueError(
+                    "Production/staging requires persistent DATABASE_PATH; memory-only persistence is rejected."
+                )
+            for key in (*self.admin_api_keys, *self.api_keys):
+                lowered = key.lower()
+                if not key or lowered.startswith("change_me") or lowered in {
+                    "dev-admin-key", "dev-analyst-key", "changeme", "admin", "password", "secret", "test", "insecure",
+                }:
+                    raise ValueError(
+                        "Production requires real per-deployment API keys; development and placeholder keys are rejected."
+                    )
         else:
             if not self.jwt_secret_key:
                 self.jwt_secret_key = "dev-jwt-secret-key-32-characters-minimum-only"

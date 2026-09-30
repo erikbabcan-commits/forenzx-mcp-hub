@@ -148,7 +148,7 @@ For local forensic pack execution, the host needs Docker and the application nee
 
 The provided `docker-compose.yml` intentionally **does not mount `/var/run/docker.sock` by default**. This lets the hub/dashboard run safely even when forensic execution is hosted elsewhere or not yet enabled.
 
-If you deliberately enable local Docker pack execution, review `docs/SECURITY-BOUNDARIES.md` first. A separate worker host remains the preferred production model.
+If you deliberately enable local Docker pack execution, review `docs/security/SECURITY-BOUNDARIES.md` first. A separate worker host remains the preferred production model.
 
 ## 7. MVT pack digest
 
@@ -203,7 +203,7 @@ Docker-dependent tests should run on a machine with the Docker SDK and a Docker 
 
 ## 11. Google AI Studio / Gemini
 
-See [`docs/GOOGLE-AI-STUDIO.md`](docs/GOOGLE-AI-STUDIO.md).
+See [`docs/architecture/GOOGLE-AI-STUDIO.md`](docs/architecture/GOOGLE-AI-STUDIO.md).
 
 The normal architecture is:
 
@@ -220,3 +220,41 @@ trusted forensic worker / Docker packs
 ```
 
 Keep deterministic forensic evidence separate from model interpretation.
+
+## 12. Repository structure
+
+```text
+core/       control plane + evidence-plane services (FastAPI app, MCP engine, registries, jobs, vault, signing, migrations)
+packs/      forensic packs (adapters + manifests)
+workers/    sandboxed forensic worker pool and Docker hardening
+tests/      pytest suite (incl. database baseline, migrations, backup/restore, production-rejection gates)
+scripts/    first-run secret generation, security scan, import matrix verification
+docs/
+  architecture/   ARCHITECTURE, COMPONENTS, DATA_FLOW, ADRs, AI-studio & registry docs
+  security/       TRUST_BOUNDARIES, THREAT_MODEL, AI_EVIDENCE_BOUNDARY, SECURITY-BOUNDARIES
+  operations/     RUNBOOK, BACKUP_RESTORE
+  deployment/     PRODUCTION
+  audit/          ENTERPRISE_BASELINE, PHASE1_RESULT
+  archive/v4/     historical v4 documents (not part of runtime)
+.github/    CI workflow, issue templates, Dependabot config, CODEOWNERS
+```
+
+## 13. Development commands
+
+The project uses Poetry. `make verify` is the local equivalent of CI:
+
+```bash
+make install        # poetry install (requires poetry.lock — see CHANGELOG/PHASE1_RESULT)
+make lint           # ruff check
+make format-check   # ruff format --check
+make typecheck      # mypy core
+make test           # pytest -q
+make security       # scripts/security_scan.py
+make verify         # all of the above, CI-equivalent
+make run            # local uvicorn
+make docker-build   # docker compose build
+make backup         # consistent SQLite snapshot into BACKUPS_DIR
+make db-check       # PRAGMA quick_check on the live database
+```
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing schema (`core/migrations.py`), packs, or anything touching evidence integrity.

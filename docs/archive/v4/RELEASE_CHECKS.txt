@@ -1,0 +1,19 @@
+ForenZX MCP Hub v5 - release checks (2026-09-30)
+
+EXECUTED:
+- pytest -q -> 145 passed
+- python scripts/security_scan.py -> 0 CRITICAL/HIGH findings
+- node --check core/dashboard/app.js -> PASS
+- python -m compileall -q core packs workers tests -> PASS
+
+NOT EXECUTED IN BUILD ENVIRONMENT:
+- ruff (package unavailable)
+- mypy (package unavailable)
+- live Docker/MVT smoke test (Docker SDK/daemon unavailable)
+- live Gemini remote MCP call (requires deployed HTTPS URL and credentials)
+
+RELEASE HYGIENE:
+- runtime SQLite DB removed from archive
+- generated Ed25519 private key removed from archive
+- .env is not included; only .env.example
+- pytest/cache/pyc files removed

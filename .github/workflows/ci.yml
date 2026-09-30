@@ -1,0 +1,56 @@
+# CI gate — identical to `make verify`. NOT a release pipeline.
+name: CI
+
+on:
+  push:
+    branches: [main, "hardening/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies (reproducible via lockfile)
+        run: |
+          if [ -f poetry.lock ]; then
+            poetry install --with dev
+          else
+            echo "::warning::poetry.lock missing — installing from pyproject (run 'make lock' and commit poetry.lock for reproducibility)"
+            poetry lock
+            poetry install --with dev
+          fi
+
+      - name: Compile check
+        run: poetry run python -m compileall -q core packs workers
+
+      - name: Lint (ruff)
+        run: poetry run ruff check .
+
+      - name: Format check (ruff)
+        run: poetry run ruff format --check .
+
+      - name: Type check (mypy)
+        run: poetry run mypy core
+
+      - name: Tests (pytest)
+        run: poetry run pytest -q
+
+      - name: Security scan
+        run: poetry run python scripts/security_scan.py
