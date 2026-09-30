@@ -1,0 +1,40 @@
+services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: forenzx-docker-proxy
+    restart: unless-stopped
+    environment:
+      # Povolujeme len potrebne API endpoints (citane z python kodu):
+      - CONTAINERS=1   # create, start, stop, rm, logs, wait
+      - IMAGES=1       # get image attrs (RepoDigests)
+      - PING=1         # client.ping()
+      - POST=1         # umoznit mutacne API (create/start/stop/rm)
+      - AUTH=0
+      - BUILD=0
+      - COMMIT=0
+      - CONFIGS=0
+      - DISTRIBUTION=0
+      - EVENTS=0
+      - EXEC=0
+      - INFO=0
+      - NETWORKS=0
+      - NODES=0
+      - PLUGINS=0
+      - SECRETS=0
+      - SERVICES=0
+      - SESSION=0
+      - SWARM=0
+      - SYSTEM=0
+      - TASKS=0
+      - VOLUMES=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # Nepublikujeme ziadne porty na hostitela! Proxy je dostupne len z docker network.
+    
+  forenzx-mcp-hub:
+    environment:
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
+    depends_on:
+      - docker-socket-proxy
+    volumes:
+      - ./threat_intel:/var/forensics/threat_intel:ro
