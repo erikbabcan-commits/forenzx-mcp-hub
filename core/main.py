@@ -362,6 +362,29 @@ async def mcp_server_tools(server_id: str, _: TokenUser = Depends(get_admin)):
         raise HTTPException(status_code=502, detail=str(exc))
 
 
+@app.put("/api/v1/mcp-servers/{server_id}/trust")
+async def set_mcp_server_trust(
+    server_id: str,
+    trust_state: str = Body(embed=True),
+    user: TokenUser = Depends(get_admin),
+    x_trace_id: Annotated[Optional[str], Header()] = None,
+):
+    """Explicitly set remote MCP trust state (admin decision, never automatic).
+
+    HEALTHY != TRUSTED: probes never promote a server; only this endpoint does.
+    """
+    from core.mcp_registry import VALID_TRUST_STATES
+    if trust_state not in VALID_TRUST_STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid trust_state; expected one of {sorted(VALID_TRUST_STATES)}",
+        )
+    result = mcp_registry.set_trust_state(server_id, trust_state, user.user_id, trace_id=x_trace_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="MCP server not found")
+    return result
+
+
 @app.post("/api/v1/mcp-servers/{server_id}/restart")
 async def restart_mcp_server(server_id: str, user: TokenUser = Depends(get_admin)):
     try:
