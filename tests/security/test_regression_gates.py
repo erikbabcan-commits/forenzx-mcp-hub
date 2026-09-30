@@ -361,15 +361,19 @@ class TestCORSRegression:
 class TestDockerLazyClientAndIsolation:
     """Verifies that WorkerPool is lazily loaded and execution fails closed if Docker is down."""
 
-    def test_app_and_worker_pool_import_without_docker_daemon(self):
+    def test_app_and_worker_pool_import_without_docker_daemon(self, monkeypatch):
         pool = WorkerPool()
         assert pool is not None
+        # Deterministic simulation of an environment without a Docker SDK/daemon,
+        # independent of whether the CI runner itself has Docker.
+        monkeypatch.setattr("workers.pool.docker", None)
         with pytest.raises(RuntimeError, match="Docker infrastructure is unavailable"):
             _ = pool.client
 
     @pytest.mark.asyncio
-    async def test_docker_unavailable_forensic_execution_fail_closed(self, tmp_path):
-        # Create pool where client access fails
+    async def test_docker_unavailable_forensic_execution_fail_closed(self, tmp_path, monkeypatch):
+        # Deterministic simulation of Docker being unavailable, independent of the runner.
+        monkeypatch.setattr("workers.pool.docker", None)
         pool = WorkerPool()
 
         manifest = PackManifest(

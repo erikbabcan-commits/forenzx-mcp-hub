@@ -78,6 +78,7 @@ class TestRestartRecovery:
         )
         AsyncJobManager()  # restart path
         rows = database.fetchall("SELECT job_id FROM jobs WHERE current_stage='INTERRUPTED_BY_RESTART'")
+        assert rows, "restart recovery must be queryable/audit-visible"
         row = database.fetchone("SELECT state, error_message FROM jobs WHERE case_id='CASE-R3'")
         assert row["state"] == "FAILED"
         assert row["error_message"]

@@ -41,7 +41,7 @@ class TestMCPTrustModel:
         created = _make_server(registry)
         assert created["trust_state"] == "UNVERIFIED"
 
-    def test_successful_probe_does_not_promote_trust(self, isolated_db, monkeypatch):
+    async def test_successful_probe_does_not_promote_trust(self, isolated_db, monkeypatch):
         registry = MCPRegistry()
         created = _make_server(registry)
         server_id = created["id"]
@@ -53,7 +53,7 @@ class TestMCPTrustModel:
             )
 
         monkeypatch.setattr(registry, "_rpc", fake_rpc)
-        result = registry.probe(server_id, actor="health-monitor")
+        result = await registry.probe(server_id, actor="health-monitor")
         assert result["status"] == "READY"
         # HEALTHY != TRUSTED: probe may not touch trust_state
         assert registry.get(server_id)["trust_state"] == "UNVERIFIED"
@@ -61,7 +61,7 @@ class TestMCPTrustModel:
         tools_hash = registry.get(server_id)["tools_hash"]
         assert tools_hash and re.fullmatch(r"[0-9a-f]{64}", tools_hash)
 
-    def test_failed_probe_leaves_trust_untouched(self, isolated_db, monkeypatch):
+    async def test_failed_probe_leaves_trust_untouched(self, isolated_db, monkeypatch):
         registry = MCPRegistry()
         created = _make_server(registry)
 
@@ -69,7 +69,7 @@ class TestMCPTrustModel:
             raise RuntimeError("connection refused")
 
         monkeypatch.setattr(registry, "_rpc", failing_rpc)
-        result = registry.probe(created["id"])
+        result = await registry.probe(created["id"])
         assert result["status"] == "DOWN"
         assert registry.get(created["id"])["trust_state"] == "UNVERIFIED"
 
