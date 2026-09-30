@@ -187,6 +187,7 @@ class MCPServer:
                 try:
                     scratch_dir = config.scratch_base_dir / job_id
                     if download_url:
+                        job_manager.update_progress(job_id, AnalysisState.RUNNING, 2, "Downloading evidence from S3")
                         await download_evidence_to_vault(
                             case_id,
                             evidence_id,
@@ -194,7 +195,6 @@ class MCPServer:
                             str(claimed_sha256) if claimed_sha256 else None,
                             str(download_filename) if download_filename else None,
                         )
-                        job_manager.update_progress(job_id, AnalysisState.RUNNING, 2, "Downloading evidence from S3")
                     adapter = adapter_class(manifest, scratch_dir)
                     result = await self.pool.execute(
                         job_id,
@@ -317,3 +317,4 @@ class MCPServer:
         return json.dumps(
             {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}, ensure_ascii=False
         )
+
