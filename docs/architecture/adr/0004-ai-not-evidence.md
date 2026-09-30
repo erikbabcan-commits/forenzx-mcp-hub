@@ -1,20 +1,30 @@
-# ADR-0004: AI is not evidence
+# ADR-0004: AI output is not forensic evidence
 
-- Status: Accepted
-- Date: 2026-09-30
+## Status
+Accepted (Phase 1)
 
 ## Context
-
-LLMs (Gemini, Mistral, …) are valuable for drafting reports, hypotheses and correlations. They are also non-deterministic and unreliable as sources of forensic fact. Any path that lets model output masquerade as a finding destroys the evidentiary value of the whole system.
+The platform integrates LLMs (Gemini, Mistral, future providers) for
+interpretation, correlation, and report drafting. LLMs are non-deterministic
+and hallucination-prone. Any value they produce that enters the evidence
+chain would make the whole forensic record unverifiable.
 
 ## Decision
-
-1. Deterministic evidence (findings, timeline, integrity hashes, classifications) is produced exclusively by the evidence plane — digest-pinned tools in isolated sandboxes.
-2. Model output may only exist as `AIInterpretation` records that *reference* findings (`finding_refs`) and are marked `is_ai_assisted`. It can never be stored as, merged into, or promote/demote a `ForensicFinding`.
-3. There is no code path from the intelligence plane into the vault, findings, job results or classifications. The intelligence plane has read-only access to signed results.
-4. Regression tests enforce that failed/security-blocked analyses always carry classification `ERROR`, and that findings carry `is_ai_assisted: false` from evidence tools.
+The INTELLIGENCE PLANE is advisory only. AI must never create or modify:
+artifact hashes, deterministic IOC hits, chain-of-custody events, execution
+signatures, or observed timestamps not derived from a deterministic source.
+AI output is always labeled as AI-generated and stored separately from
+evidence. Only the deterministic evidence plane produces forensic facts.
 
 ## Consequences
+- Evidence chain remains verifiable and reproducible.
+- LLM outages degrade only the advisory layer.
+- Report drafts need a human/analyst acceptance step before publication.
+- Phase 2 must add technical enforcement (write-path restrictions), not
+  just documentation.
 
-- Reports can cite AI interpretation only as clearly-marked interpretation.
-- Findings remain independently verifiable via Ed25519-signed execution records regardless of any AI involvement.
+## Alternatives
+- Trust LLM output with human review: rejected — hallucinated details can
+  survive review and contaminate the record.
+- Fine-tuned local models with sampling disabled: rejected — still not
+  provably deterministic.

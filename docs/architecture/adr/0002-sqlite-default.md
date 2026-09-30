@@ -1,21 +1,33 @@
-# ADR-0002: SQLite as the default database with a versioned migration mechanism
+# ADR-0002: SQLite as the default database
 
-- Status: Accepted
-- Date: 2026-09-30
+## Status
+Accepted (Phase 1)
 
 ## Context
-
-The deployment target is a single low-maintenance node. Job metadata, results, registry and audit events are modest in volume. Introducing a database server adds operational cost without benefit at this scale. However, the original code created its schema via ad-hoc `CREATE TABLE IF NOT EXISTS` at every startup, with no versioning — unpredictable and unmaintainable.
+The platform targets low-maintenance single-node deployment. Job state,
+registry, audit events, and metadata need durable, transactional storage
+with referential integrity. Earlier revisions modified the schema with
+ad-hoc DDL at startup, which made production state unpredictable.
 
 ## Decision
-
-1. SQLite remains the default and only shipped database (WAL mode, `foreign_keys=ON`, `busy_timeout=10000`).
-2. All schema changes go through ordered, versioned migrations in `core/migrations.py`, recorded in a `schema_migrations` table. Ad-hoc DDL at startup is forbidden.
-3. Pre-migration databases are stamped as version 1 (baseline) — no silent recreation.
-4. All SQL lives behind `core/db.py` (single storage interface), so PostgreSQL can be added later as an alternate backend without touching callers. PostgreSQL is *not* shipped now.
+SQLite remains the default database, hardened with PRAGMA
+foreign_keys=ON, WAL mode, and busy_timeout=10000 on every connection.
+The schema is versioned via an explicit migration list
+(core/migrations.py); runtime code performs no ad-hoc CREATE/ALTER.
+Backups use the SQLite online backup API with SHA-256 manifests. A
+storage-level abstraction keeps a future PostgreSQL backend possible
+without making PostgreSQL a required dependency now.
 
 ## Consequences
+- Zero database administration for single-VPS operation.
+- Migration tests and a backup→restore→integrity test are mandatory gates.
+- Write concurrency is bounded by a single writer; acceptable for the
+  single-node target.
+- PostgreSQL migration later requires moving off SQLite-specific backup
+  tooling (documented in Phase 2 backlog).
 
-- Backups must be WAL-aware: use the SQLite Online Backup API (`core/maintenance.backup_database`), never a raw file copy.
-- Migration tests (`tests/test_database_baseline.py`) enforce contiguity, idempotency and legacy stamping.
-- A PostgreSQL backend, when needed, only requires a new implementation of the `Database` interface plus a migration set.
+## Alternatives
+- PostgreSQL now: rejected — mandatory operational dependency for the whole
+  user base while the workload does not need it.
+- Keep ad-hoc startup DDL: rejected — unverifiable production schema.
+- TinyDB/JSON files: rejected — no transactions, no referential integrity.

@@ -1,65 +1,72 @@
-# Architecture
+# ForenZX MCP Hub — Architecture
 
-ForenZX MCP Hub is a **three-plane forensic service**. The planes are hard boundaries, not marketing layers: each has its own trust level, its own data, and its own failure behavior.
+## Overview
 
-```mermaid
-flowchart TB
-    subgraph CP ["CONTROL PLANE (orchestration, no evidence custody)"]
-        API[FastAPI app core/main.py]
-        MCP[MCP engine core/server.py]
-        REG[MCP registry / pack registry]
-        ACL[ACL + policy core/acl.py]
-        JOBS[Job manager core/jobs.py]
-        AUDIT[Registry events + JSON logs]
-        DASH[Dashboard static UI]
-    end
-    subgraph EP ["EVIDENCE PLANE (deterministic, isolated)"]
-        WORKERS[Docker forensic workers workers/pool.py]
-        PACKS[Forensic packs packs/*]
-        VAULT[Evidence vault core/vault.py]
-        PARSERS[Deterministic parsers/adapters]
-        HASH[SHA-256 / Merkle hashing]
-        SIGN[Ed25519 signing core/signing.py]
-    end
-    subgraph IP ["INTELLIGENCE PLANE (interpretation only)"]
-        LLM[Gemini / Mistral / LLM clients]
-        REPORT[Report drafting]
-        CORR[Cross-case correlation]
-    end
-    API --> MCP --> JOBS --> WORKERS
-    WORKERS --> VAULT
-    WORKERS --> PACKS
-    WORKERS --> SIGN
-    LLM -->|read-only deterministic results| REPORT
-    REPORT -.->|never writes evidence| EP
+ForenZX MCP Hub is a single-node forensic analysis platform exposing
+deterministic forensic tooling through an MCP (Model Context Protocol)
+server and an HTTP API, with optional LLM-assisted interpretation. It is
+deliberately a low-maintenance single-VPS deployment; there is no Kubernetes
+and no microservice decomposition.
+
+## Three planes
+
+The system is organized into three security planes. The plane boundary is
+the central design invariant: **control code never fabricates evidence, and
+evidence code never gains privileges of control.**
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ INTELLIGENCE PLANE (advisory only)                            │
+│ Gemini / Mistral / future LLM integrations                   │
+│ interpretation · correlation · report drafting               │
+└──────────────────────── ▲ input only ─────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ CONTROL PLANE                                                │
+│ FastAPI HTTP API · MCP server · dashboard · MCP registry     │
+│ authentication · ACL/policy · job orchestration · audit       │
+│ metadata · maintenance                                       │
+└──────────────────────── ▼ dispatch/collect ──────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ EVIDENCE PLANE                                               │
+│ isolated forensic workers · packs · evidence vault            │
+│ deterministic parsers · hashing · execution signing          │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-## Control plane
+### Control plane
 
-Everything that orchestrates: the FastAPI application, the MCP endpoint, the remote MCP server registry, the pack registry, ACL/policy enforcement, job lifecycle, audit events, maintenance and the operations dashboard. The control plane **never modifies evidence** and never fabricates forensic results. It holds metadata only.
+`core/` — FastAPI application (`core/main.py`), MCP server (`core/server.py`),
+dashboard (`core/dashboard/`), MCP registry (`core/mcp_registry.py`),
+pack registry (`core/pack_registry.py`), auth (API keys/JWT), ACL
+(`core/acl.py`), jobs (`core/jobs.py`), audit (`core/db.py` registry events),
+maintenance & backup (`core/maintenance.py`), configuration
+(`core/config.py`).
 
-Key modules: `core/main.py`, `core/server.py`, `core/mcp_registry.py`, `core/pack_registry.py`, `core/acl.py`, `core/jobs.py`, `core/db.py`, `core/maintenance.py`, `core/dashboard/`.
+### Evidence plane
 
-## Evidence plane
+`workers/` (worker pool, isolation), `packs/` (deterministic analysis
+packs), evidence vault, hashing, Ed25519/HMAC execution signing
+(`core/signing.py`). All evidence-producing work happens here, dispatched by
+the control plane, with results signed and hashed deterministically.
 
-Everything deterministic and evidence-custodial: isolated Docker forensic workers, forensic packs, the evidence vault (path-traversal-hardened, Merkle-hashed), deterministic parsers, hashing, and Ed25519 signing of execution records. Evidence-plane output is **reproducible and verifiable**: same input + same pack digest ⇒ same findings, covered by a signed execution record with pre- and post-execution integrity hashes.
+### Intelligence plane
 
-Key modules: `workers/pool.py`, `workers/isolation.py`, `packs/base.py`, `packs/*/*`, `core/vault.py`, `core/signing.py`.
+LLM integrations (`docs/architecture/GOOGLE-AI-STUDIO.md` for the current
+Gemini flow). The intelligence plane can *read* evidence and metadata and
+*produce drafts and interpretations*, but its output is advisory. See
+`docs/security/AI_EVIDENCE_BOUNDARY.md` for the hard restrictions.
 
-## Intelligence plane
+## Key invariants
 
-Everything interpretive: LLM clients (Gemini/Mistral via remote MCP), report drafting, hypothesis generation and cross-case correlation. **The intelligence plane consumes deterministic evidence-plane results read-only.** An LLM must never create, alter or enrich a forensic finding; its output is always marked `is_ai_assisted` and lives in `AIInterpretation` records that reference findings — it can never replace them.
+1. **Fail closed** — invalid pack digests, weak secrets, or missing
+   components disable/abort; never downgrade silently.
+2. **AI output is not evidence** — see the boundary document.
+3. **HEALTHY != TRUSTED** — remote MCP servers start `UNVERIFIED`.
+4. **No Docker socket in the production control plane** — workers are
+   isolated by configuration, not by the control plane's container runtime.
 
-See [AI_EVIDENCE_BOUNDARY.md](../security/AI_EVIDENCE_BOUNDARY.md) for the full invariant and enforcement points.
+## Decision records
 
-## Non-negotiable invariants
-
-1. **Fail-closed.** Missing threat-intel bundle, unverifiable image digest, unknown ACL object, weak production secret ⇒ refuse the operation. Never degrade to "best effort".
-2. **AI ≠ EVIDENCE.** Model output is interpretation, never evidence (ADR-0004).
-3. **Determinism.** Forensic results come only from digest-pinned containerized tools executed in hardened sandboxes.
-4. **No ad-hoc schema.** All database changes go through versioned migrations (`core/migrations.py`, ADR-0002 context).
-5. **Control plane ≠ Docker privileged.** The control-plane container never mounts the Docker socket by default (ADR-0003).
-
-## Deployment shape
-
-Single-node, low-maintenance by design (docker-compose, SQLite, one volume). The storage layer (`core/db.py`) is the only place SQL is written, so a future PostgreSQL backend can be added without touching callers. No Kubernetes, no optional infrastructure.
+All significant decisions are recorded in `adr/` (ADR-0001 through
+ADR-0006). Component inventory: `COMPONENTS.md`. Request/data flow:
+`DATA_FLOW.md`. Security models: `../security/`.

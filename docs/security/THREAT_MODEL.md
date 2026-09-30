@@ -1,27 +1,28 @@
-# Threat Model (STRIDE)
+# Threat Model (STRIDE, Phase 1 scope)
 
-Scope: single-node deployment, control plane exposed via reverse proxy, worker execution on a separate host (or explicitly-enabled local Docker).
+Assets: forensic evidence & chain of custody; registry/audit records;
+credentials (API keys, JWT secret, HMAC key, Ed25519 keys); analyst time;
+host integrity.
 
-## Assets
-A1 Evidence (vault), A2 signed execution records / findings, A3 control-plane database (registry, jobs, audit), A4 remote MCP credentials, A5 signing key, A6 API keys/JWT secret, A7 service availability.
+## Threats
 
-## Adversaries
-T1 external attacker on the network; T2 authenticated analyst (insider); T3 malicious/compromised admin; T4 compromised remote MCP server; T5 malicious pack supply chain; T6 compromised LLM/intelligence layer; T7 curious host operator.
+| ID | Threat | Plane | Current mitigation | Status |
+|---|---|---|---|---|
+| S-1 | Spoofed analyst/admin | Control | API keys, admin key separation | KEPT; RBAC granularity Phase 2 |
+| S-2 | Forged execution results | Evidence | HMAC + Ed25519 signing, digests | KEPT |
+| T-1 | Tampering with evidence | Evidence | Vault, hashing, worker isolation | KEPT |
+| T-2 | Tampering with audit log | Control | Append-only events | **OPEN** — hash chaining Phase 2 (AL-1) |
+| T-3 | Supply-chain image swap | Evidence | Mandatory sha256 digests, fail closed | KEPT |
+| R-1 | Repudiation of trust changes | Control | Audited trust endpoint w/ trace_id | KEPT; chaining Phase 2 |
+| I-1 | Secret leakage via logs | Control | Never-log list, secret scanning, entropy checks | KEPT; enforcement Phase 2 |
+| I-2 | Credential theft at rest | Control | File permissions | **OPEN** — AEAD encryption Phase 2 (C-1) |
+| D-1 | DoS via job flooding | Control | Worker pool bounds | KEPT; rate limiting Phase 2 |
+| D-2 | DoS via probe targets (SSRF) | Control | Timeout-bounded probes | **OPEN** — SSRF/DNS rebinding Phase 2 (R-1) |
+| E-3 | Privilege escalation in container | Evidence | read_only, cap_drop ALL, no-new-privileges | KEPT |
+| E-4 | Container escape via Docker socket | Control | Socket forbidden (ADR-0003) | KEPT |
+| AI-1 | Hallucinated "evidence" | Intelligence | AI != EVIDENCE boundary | KEPT; technical enforcement Phase 2 |
 
-## Matrix
+## Out of scope for Phase 1
 
-| Threat | Vector | Current mitigation | Residual risk & follow-up |
-|---|---|---|---|
-| Spoofing | Stolen API key/JWT (T1/T2) | Strong-secret enforcement, JWT exp required, 401 on invalid | No rotation/JWKS; no rate limiting (audit AU-2/AU-3) |
-| Tampering | Evidence modified during analysis (T1/T7) | Read-only mount, pre/post SHA-256+Merkle, chain of custody breach detection | none known |
-| Tampering | Malicious pack image (T5) | Canonical RepoDigest pinning + placeholder rejection (ADR-0005) | adapters are in-process code (audit P-1) |
-| Tampering | LLM rewrites findings (T6) | No write path; `AIInterpretation` separate; `is_ai_assisted` marker (ADR-0004) | none known |
-| Repudiation | Admin denies action (T3) | `registry_events` audit with actor | audit log prunable by same role (AL-1) |
-| Info disclosure | Secrets via API/dashboard | Fernet at rest, never returned, `has_auth_secret` only | — |
-| Info disclosure | SSRF via registry probe (T3) | Admin-only, no redirects | no private-range egress filtering (R-1) |
-| Info disclosure | Dashboard HTML unauthenticated | Static metadata only; APIs require keys (DA-1) | document/proxy-level auth |
-| DoS | Job floods, big bodies (T1/T2) | Worker pool semaphore, mem/cpu/pids caps, input validation | no API rate limiting |
-| Elevation | Control plane → host (T3/T5) | No docker socket by default (ADR-0003), non-root, no caps, read-only fs | local-Docker mode is documented opt-in risk |
-
-## Highest-priority follow-ups (from ENTERPRISE_BASELINE.md)
-HIGH: D-1 (migrations — fixed this phase), D-2 (WAL-safe backup — fixed this phase), TE-1/CI-1 (CI — added this phase), DE-1 (lockfile — NOT_VERIFIED, see PHASE1_RESULT.md). MEDIUM backlog: AZ-1 (persisted case ACL), R-1 (egress allowlist), AL-1 (audit tamper-evidence).
+Kubernetes hardening, multi-tenant isolation, physical acquisition chain of
+custody, nation-state supply-chain audits.

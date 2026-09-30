@@ -1,48 +1,67 @@
 # Data Flow
 
-## 1. Analysis job (happy path)
+## 1. Analysis request (deterministic path — evidence)
 
-```mermaid
-sequenceDiagram
-    participant C as MCP client
-    participant CP as Control plane (FastAPI / MCP engine)
-    participant DB as SQLite (jobs, results, events)
-    participant W as Evidence plane (Docker worker)
-    participant V as Evidence vault
-
-    C->>CP: POST /mcp tools/call forenzx_analysis_start
-    CP->>CP: authenticate + enforce case ACL (fail-closed)
-    CP->>CP: pack enabled? input supported? (fail-closed)
-    CP->>DB: INSERT jobs (QUEUED, idempotency-checked)
-    CP->>W: execute in sandbox (digest-pinned image)
-    W->>V: resolve evidence path (traversal/symlink checks)
-    W->>V: pre-flight SHA-256/Merkle (+ claimed hash verify)
-    W->>W: run tool (argv, no shell, network off)
-    W->>V: post-execution integrity re-check
-    W->>CP: findings + chain of custody + execution record
-    CP->>CP: sign execution record (Ed25519)
-    CP->>DB: INSERT job_results, state=COMPLETED
-    C->>CP: forenzx_analysis_results → signed result
+```
+Client (API key / JWT)
+  → Control plane: authenticate → authorize (ACL) → create Job (persisted)
+  → dispatch to Evidence plane: worker pool → isolated execution
+      pack manifest checked: image digest MUST match ^sha256:[a-f0-9]{64}$
+      placeholder/invalid digest ⇒ pack DISABLED (fail closed)
+  → deterministic parser output → hashing (SHA-256) → vault storage
+  → execution signing (HMAC + Ed25519)
+  → results persisted; audit event written (actor, action, target, result,
+    trace_id)
 ```
 
-Failure at any verification point (digest mismatch, hash mismatch, missing IoC bundle) produces a `FAILED`/`SECURITY_BLOCKED` result with classification `ERROR` — never a partial or "best effort" success. A process restart honestly marks active jobs `FAILED / INTERRUPTED_BY_RESTART`.
+Everything on this path is forensic evidence: hashes, IOC hits from local
+deterministic feeds, chain-of-custody events, signatures, timestamps
+observed from deterministic sources.
 
-## 2. Remote MCP management
+## 2. Health probe (registry)
 
-Admin → `POST/PUT/DELETE /api/v1/mcp-servers` → registry row (secret Fernet-encrypted at rest) → `registry_events` audit row. Health probes (`tools/list`) run in the background and store `last_status/last_latency_ms/last_tools`. Secret values never leave the server; the API exposes only `has_auth_secret`.
+```
+MCP registry → probe remote server (timeout-bounded HTTP)
+  → store latency, tools hash (tools_hash)
+  → NEVER changes trust_state (HEALTHY != TRUSTED)
+```
 
-## 3. Intelligence plane (read-only)
+New servers are inserted as `UNVERIFIED`. Only the audited admin trust
+endpoint changes `trust_state`, recorded in `registry_events` with
+`trace_id` and `X-Trace-Id` passthrough.
 
-LLM client → remote MCP over HTTPS → `forenzx_analysis_results` → **deterministic, signed results only**. The model may draft reports/hypotheses stored as `AIInterpretation` (with `finding_refs`, `is_ai_assisted` semantics). No write path from the intelligence plane to evidence or findings exists — see [AI_EVIDENCE_BOUNDARY.md](../security/AI_EVIDENCE_BOUNDARY.md).
+## 3. Intelligence path (advisory only)
 
-## 4. Persistence state
+```
+Evidence/metadata → Intelligence plane (Gemini/Mistral)
+  → interpretation drafts, correlation suggestions, report drafts
+  → presented as ADVISORY output, marked as AI-generated
+```
 
-- `DATABASE_PATH` (SQLite, WAL): jobs, job_results, mcp_servers, pack_overrides, registry_events, schema_migrations.
-- `DATA_DIR/ed25519-private.pem`: signing key (0600).
-- `VAULT_BASE_DIR/<case_id>/<evidence_id>`: immutable evidence.
-- `SCRATCH_BASE_DIR/<job_id>`: transient worker scratch, always cleaned up.
-- `BACKUPS_DIR`: WAL-consistent snapshots created via the SQLite Online Backup API.
+The intelligence plane can **read** evidence and metadata. It can **never
+write** artifact hashes, deterministic IOC hits, chain-of-custody events,
+execution signatures, or observed timestamps. See
+`../security/AI_EVIDENCE_BOUNDARY.md`.
 
-## 5. Trust boundary crossings
+## 4. Persistence & recovery
 
-Every crossing is listed in [TRUST_BOUNDARIES.md](../security/TRUST_BOUNDARIES.md). The two hardest rules: evidence crosses into a container **read-only**, and model output crosses into storage **only as marked interpretation**.
+- SQLite (WAL, foreign_keys=ON, busy_timeout=10s) is the single source of
+  truth for jobs, registry, audit events, metadata.
+- All schema changes go through numbered migrations (`core/migrations.py`);
+  there is no ad-hoc startup DDL.
+- On restart, jobs left `RUNNING` are recovered to `FAILED`
+  (`error_code=INTERRUPTED_BY_RESTART`) and the recovery is audited — no job
+  stays forever RUNNING.
+- Backups use the SQLite online backup API and are written with a manifest
+  (SHA-256, size, schema version, timestamp, source); restore is verified
+  against the manifest hash before use.
+
+## 5. Backup / restore
+
+```
+live DB --online backup API--> backup file + manifest.json (sha256)
+restore: verify manifest sha256 → restore into target → integrity check
+         (PRAGMA integrity_check) → data comparison
+```
+
+See `../operations/BACKUP_RESTORE.md`.

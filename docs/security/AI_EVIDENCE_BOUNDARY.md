@@ -1,20 +1,37 @@
-# The AI ≠ EVIDENCE Boundary
+# AI / Evidence Boundary
 
 ## Invariant
-**Deterministic forensic evidence is produced exclusively by the evidence plane.** LLM output can never create, modify, enrich, or reclassify a finding. Model-generated content is interpretation, structurally separate and always marked.
 
-## Enforcement points
+**AI OUTPUT IS NOT FORENSIC EVIDENCE.**
 
-| Layer | Mechanism |
-|---|---|
-| Data model (`core/models/forensic.py`) | `ForensicFinding.is_ai_assisted: bool` (false for evidence-plane tools); separate `AIInterpretation` class with `finding_refs`, `hypotheses`, `limitations` — it references findings, it cannot be a finding |
-| Data model | `AnalysisResult` validator: FAILED/SECURITY_BLOCKED ⇒ classification must be `ERROR` (no softening) |
-| MCP engine (`core/server.py`) | Tool surface offers only deterministic analysis tools; there is no tool that writes AI content into results |
-| Worker pool (`workers/pool.py`) | Findings originate solely from parsing deterministic tool output artifacts (`adapter.parse_output_artifacts`) |
-| Tests (`tests/test_regression_gates.py`) | Regression gates verify the invariant set |
+The intelligence plane (Gemini, Mistral, future LLMs) provides
+interpretation, correlation suggestions, and report drafting only.
 
-## Rules for contributors
-1. Never add a field to `ForensicFinding` populated from model output.
-2. Never let an LLM choose or change `DetectionClassification` or `FindingSeverity`.
-3. AI-assisted narratives live in `AIInterpretation` (or a report artifact) and always reference evidence by ID.
-4. If a future feature mixes AI text into a report, it must be visually and structurally distinguishable from findings.
+## AI must never create or modify
+
+- artifact hashes
+- deterministic IOC hits
+- chain-of-custody events
+- execution signatures
+- observed timestamps that do not originate from a deterministic source
+
+## Rules
+
+1. AI output is always labeled AI-generated and stored separately from
+   evidence records.
+2. AI may read evidence and metadata; it has no write path into the
+   evidence plane.
+3. Deterministic results (hashes, IOC matches from local feeds, signatures)
+   are produced exclusively by the evidence plane.
+4. Report drafts require explicit analyst acceptance before publication.
+5. Any AI claim about a hash, hit, or timestamp must be treated as a hint
+   and re-derived deterministically before it can be recorded.
+
+## Enforcement status
+
+Phase 1: documented invariant + code organization (advisory layer has no
+evidence write path).
+Phase 2 (backlog): technical write-path restrictions and tests that fail if
+the intelligence layer can write evidence tables.
+
+Related: ADR-0004, ../architecture/ARCHITECTURE.md.

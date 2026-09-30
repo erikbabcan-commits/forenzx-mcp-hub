@@ -1,20 +1,32 @@
-# ADR-0003: The control plane never mounts the Docker socket by default
+# ADR-0003: No Docker socket in the control plane
 
-- Status: Accepted
-- Date: 2026-09-30
+## Status
+Accepted (Phase 1)
 
 ## Context
-
-Local forensic pack execution needs Docker. Mounting `/var/run/docker.sock` into the control-plane container would grant it root-equivalent control of the host: a control-plane compromise (e.g. via a malicious registry entry or dashboard bug) would become a host compromise.
+Mounting /var/run/docker.sock into the application container is equivalent
+to granting host root. A forensic platform whose control plane holds the
+Docker socket would let any control-plane compromise escape to the host and
+tamper with evidence, other containers, or the kernel.
 
 ## Decision
-
-1. `docker-compose.yml` deliberately does NOT mount the Docker socket.
-2. The hub runs, serves the dashboard and the MCP registry without any Docker access.
-3. Forensic execution belongs on a separate worker host (preferred production model). Enabling local Docker execution is a conscious, documented operator decision, taken only after reviewing `docs/security/SECURITY-BOUNDARIES.md`.
-4. Worker containers themselves are maximally hardened regardless: digest-pinned images, `cap_drop=ALL`, `no-new-privileges`, read-only rootfs, `network_mode=none`, pids/mem/cpu limits, noexec tmpfs, argv-only commands.
+The production control plane never mounts or requires the Docker socket.
+Forensic worker isolation is implemented via the workers/pool layer and
+container hardening (read_only, cap_drop ALL, no-new-privileges, tmpfs).
+If a development convenience feature ever needs the Docker socket, it must
+be clearly marked DEV / HIGH TRUST ONLY and excluded from production
+configuration.
 
 ## Consequences
+- Host compromise via Docker socket is structurally prevented.
+- Development workflows may need extra steps to run container-based packs.
+- Deployment documentation must keep asserting the socket is absent.
 
-- Default deployment cannot run forensic packs locally (they fail closed); this is intentional.
-- The registry and evidence layers are immune to control-plane-to-host escalation by default.
+## Alternatives
+- Docker socket mounted read-only: rejected — the socket API cannot be
+  meaningfully read-only; it still allows container creation with host
+  mounts.
+- Rootless Docker/Podman socket: deferred — better than the default socket
+  but still unnecessary for the current single-node worker model.
+- DooD with a filtering proxy: rejected for now — complexity without a
+  current need.

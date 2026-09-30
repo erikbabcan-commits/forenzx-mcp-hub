@@ -1,35 +1,57 @@
-# Production Deployment (single node)
+# Production Deployment (single node / VPS)
 
-Intentionally simple: one VPS, docker compose, SQLite, one volume. No Kubernetes.
+## Requirements
 
-## Prerequisites
-- Docker Engine + compose plugin
-- A reverse proxy with TLS (Caddy/nginx/Traefik) — the service itself speaks HTTP
-- Persistent storage for `/data` (DB, signing key, backups), the vault and the threat-intel directory
-- A separate worker host for forensic execution (recommended; see ADR-0003)
+- Docker + Docker Compose
+- One host, TLS terminated in front (reverse proxy), persistent volume for
+  `DATA_DIR`, `VAULT_BASE_DIR`, `THREAT_INTEL_DIR`, backups
+- **No Docker socket mounted into the control plane** (ADR-0003)
 
 ## Steps
-1. Checkout: `git clone https://github.com/erikbabcan-commits/forenzx-mcp-hub && cd forenzx-mcp-hub`
-2. Secrets: `./scripts/first_run.sh` (generates random 48-byte secrets, 0600 `.env`) — then edit `.env`:
-   - `ENVIRONMENT=production`
-   - `ALLOWED_ORIGINS=["https://your-domain"]`
-   - real deployment API keys (dev/placeholder values are rejected at startup)
-   - `DATABASE_PATH` on persistent storage (memory/`/tmp` rejected in production)
-3. Build & run: `docker compose up -d --build`
-4. Front it with TLS, e.g. Caddy: `your-domain { reverse_proxy 127.0.0.1:8000 }`
-5. Verify: `curl -fsS https://your-domain/health/ready` — production with no enabled pack intentionally returns `BLOCKED` (503).
-6. Configure the MVT pack: set the real RepoDigest via the dashboard/API (see README §7).
 
-## Hardening checklist
-- [ ] TLS enforced at the proxy; HSTS emitted by the app in production
-- [ ] `.env` permissions 0600, never committed
-- [ ] Firewall: only 80/443 exposed; the app port not public
-- [ ] `/data` volume persistent and backed up (BACKUP_RESTORE.md)
-- [ ] Docker socket NOT mounted into the app container
-- [ ] Forensic workers on a separate host (or local-Docker mode consciously accepted per ADR-0003)
-- [ ] Vault & threat-intel mounts read-only
-- [ ] Real RepoDigest pinned for every enabled pack
-- [ ] Restore tested at least once
+1. `cp .env.example .env` and fill in ALL secrets:
+   `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`
+   Placeholder/weak secrets abort startup (fail closed) — this is intended.
+2. Validate configuration:
+   ```bash
+   make compose-check   # docker compose config
+   ```
+3. Build and start:
+   ```bash
+   make docker-build
+   docker compose up -d
+   ```
+4. First run: `scripts/first_run.sh` guidance / dashboard bootstrap.
+5. Verify: dashboard reachable, `make db-check` green, create a test job,
+   run `make backup` and confirm the manifest.
 
-## Scaling later (not now)
-The design allows: vertical scale (bigger node), worker pool size up (`WORKER_POOL_SIZE`), forensic execution moved to a dedicated host, and a PostgreSQL backend implemented behind `core/db.py`'s storage interface. None of these are needed for the single-node baseline.
+## Container hardening (kept, do not weaken)
+
+- `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges: true`, tmpfs for
+  writable paths
+- Non-root runtime user, no build tools in the runtime image,
+  `.dockerignore` enforced
+- SQLite lives on the persistent volume (WAL mode; memory paths rejected in
+  production)
+
+## Remote MCP servers
+
+Register servers, verify identity out-of-band, then set trust explicitly.
+Probes show health only — they never grant trust (ADR-0006). Until Phase 2
+SSRF/egress protection lands, restrict outbound access at the network layer
+(firewall / egress allowlist) for production.
+
+## Monitoring
+
+- Standard uvicorn/FastAPI logs; no secrets in logs
+  (docs/security/AUDIT_MODEL.md never-log list)
+- Weekly: backup manifest check, db integrity check, audit log review
+- Known limitation: no alerting yet (Phase 2 backlog)
+
+## Upgrade procedure
+
+1. `make backup`
+2. Pull new release, `make compose-check`, `make docker-build`
+3. `docker compose up -d` — versioned migrations apply automatically
+4. `make db-check`; verify recovery/jobs state in the dashboard
+5. Rollback = restore backup per docs/operations/BACKUP_RESTORE.md
