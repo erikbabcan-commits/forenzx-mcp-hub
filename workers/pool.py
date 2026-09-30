@@ -162,6 +162,41 @@ class WorkerPool:
                         manifest.pinned_image_digest,
                         client=docker_client,
                     )
+                except RuntimeError as e:
+                    # Docker infrastructure unavailable (SDK missing / daemon down):
+                    # fail closed with a clear, auditable warning — never fake a PASS.
+                    logger.error(f"Docker infrastructure unavailable: {e}")
+                    return AnalysisResult(
+                        job_id=job_id,
+                        pack_id=manifest.id,
+                        pack_version=manifest.version,
+                        case_id=spec.case_id,
+                        evidence_id=spec.evidence_id,
+                        started_at=datetime.now(timezone.utc).isoformat(),
+                        completed_at=datetime.now(timezone.utc).isoformat(),
+                        duration_seconds=0.0,
+                        status=AnalysisState.FAILED,
+                        summary_classification=DetectionClassification.ERROR,
+                        input_integrity={},
+                        findings=[],
+                        warnings=[f"Docker infrastructure unavailable: {e}"],
+                        limitations=["Docker infrastructure unavailable for forensic execution"],
+                        chain_of_custody=[],
+                        execution_record=ExecutionRecord(
+                            case_id=spec.case_id,
+                            evidence_id=spec.evidence_id,
+                            pack_id=manifest.id,
+                            pack_version=manifest.version,
+                            container_digest=manifest.pinned_image_digest,
+                            input_root_sha256="",
+                            ioc_bundle_sha256="",
+                            ioc_bundle_version="",
+                            tool_command=[],
+                            exit_code=-1,
+                            started_at=datetime.now(timezone.utc).isoformat(),
+                            completed_at=datetime.now(timezone.utc).isoformat(),
+                        ),
+                    )
                 except DockerDigestVerificationError as e:
                     logger.error(f"Image digest verification failed: {e}")
                     return AnalysisResult(
