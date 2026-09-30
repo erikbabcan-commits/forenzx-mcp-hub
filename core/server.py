@@ -15,6 +15,7 @@ from core.models.forensic import AnalysisState, EvidenceInputSpec
 from core.pack_registry import pack_registry
 from core.signing import signer
 from core.utils.logger import get_logger
+from core.vault_downloader import download_evidence_to_vault
 from workers.pool import WorkerPool
 
 logger = get_logger(__name__)
@@ -67,6 +68,8 @@ class MCPServer:
                         "pack_id": {"type": "string", "maxLength": 128},
                         "input_type": {"type": "string"},
                         "claimed_sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+                        "download_url": {"type": "string", "format": "uri", "pattern": "^https://"},
+                        "download_filename": {"type": "string", "maxLength": 200},
                         "idempotency_key": {"type": "string", "maxLength": 128},
                         "params": {"type": "object", "additionalProperties": True},
                     },
@@ -140,6 +143,8 @@ class MCPServer:
             pack_id = str(args["pack_id"])
             input_type = str(args["input_type"])
             claimed_sha256 = args.get("claimed_sha256")
+            download_url = args.get("download_url")
+            download_filename = args.get("download_filename")
             idempotency_key = args.get("idempotency_key")
             params = args.get("params", {})
 
@@ -181,6 +186,15 @@ class MCPServer:
             async def run_bg() -> None:
                 try:
                     scratch_dir = config.scratch_base_dir / job_id
+                    if download_url:
+                        await download_evidence_to_vault(
+                            case_id,
+                            evidence_id,
+                            str(download_url),
+                            str(claimed_sha256) if claimed_sha256 else None,
+                            str(download_filename) if download_filename else None,
+                        )
+                        job_manager.update_progress(job_id, AnalysisState.RUNNING, 2, "Downloading evidence from S3")
                     adapter = adapter_class(manifest, scratch_dir)
                     result = await self.pool.execute(
                         job_id,
