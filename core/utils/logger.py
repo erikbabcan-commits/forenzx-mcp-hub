@@ -1,6 +1,7 @@
 """
 Štruktúrované JSON logovanie s auditom.
 """
+
 from __future__ import annotations
 
 import json
@@ -27,7 +28,7 @@ class JSONFormatter(logging.Formatter):
             log_data["exc_text"] = self.formatException(record.exc_info)
 
         # Add extra fields
-        if hasattr(record, 'extra_data'):
+        if hasattr(record, "extra_data"):
             log_data.update(record.extra_data)
 
         # Add module, function, line for traceability
@@ -36,11 +37,11 @@ class JSONFormatter(logging.Formatter):
         log_data["line"] = record.lineno
 
         # For audit logs, ensure we have user context
-        if hasattr(record, 'user_id'):
+        if hasattr(record, "user_id"):
             log_data["user_id"] = record.user_id
-        if hasattr(record, 'case_id'):
+        if hasattr(record, "case_id"):
             log_data["case_id"] = record.case_id
-        if hasattr(record, 'job_id'):
+        if hasattr(record, "job_id"):
             log_data["job_id"] = record.job_id
 
         return json.dumps(log_data, ensure_ascii=False, default=str)

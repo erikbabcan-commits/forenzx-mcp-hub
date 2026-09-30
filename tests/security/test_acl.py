@@ -1,6 +1,7 @@
 """
 ACL tests - Verify fail-closed access control.
 """
+
 import pytest
 from fastapi import HTTPException, status
 
@@ -44,11 +45,7 @@ class TestCaseAccessProvider:
     def test_admin_can_access_anything(self, fresh_acl):
         """Admin can access any case."""
         # Register a case
-        fresh_acl.register_case(
-            case_id="CASE-001",
-            owner_id="owner_1",
-            org_id="org_1"
-        )
+        fresh_acl.register_case(case_id="CASE-001", owner_id="owner_1", org_id="org_1")
 
         admin_user = TokenUser(user_id="admin", roles=["admin"], organization="any")
 
@@ -57,11 +54,7 @@ class TestCaseAccessProvider:
 
     def test_owner_can_access_own_case(self, fresh_acl):
         """Case owner can access their own case."""
-        fresh_acl.register_case(
-            case_id="CASE-001",
-            owner_id="owner_1",
-            org_id="org_1"
-        )
+        fresh_acl.register_case(case_id="CASE-001", owner_id="owner_1", org_id="org_1")
 
         owner = TokenUser(user_id="owner_1", roles=[], organization="org_1")
 
@@ -69,11 +62,7 @@ class TestCaseAccessProvider:
 
     def test_same_org_can_access_case(self, fresh_acl):
         """User in same organization can access case."""
-        fresh_acl.register_case(
-            case_id="CASE-001",
-            owner_id="owner_1",
-            org_id="org_1"
-        )
+        fresh_acl.register_case(case_id="CASE-001", owner_id="owner_1", org_id="org_1")
 
         colleague = TokenUser(user_id="colleague", roles=[], organization="org_1")
 
@@ -81,11 +70,7 @@ class TestCaseAccessProvider:
 
     def test_different_org_denied_access(self, fresh_acl):
         """User in different organization is DENIED."""
-        fresh_acl.register_case(
-            case_id="CASE-001",
-            owner_id="owner_1",
-            org_id="org_1"
-        )
+        fresh_acl.register_case(case_id="CASE-001", owner_id="owner_1", org_id="org_1")
 
         outsider = TokenUser(user_id="outsider", roles=[], organization="org_2")
 
@@ -93,12 +78,7 @@ class TestCaseAccessProvider:
 
     def test_job_owner_can_access_job(self, fresh_acl):
         """Job owner can access their own job."""
-        fresh_acl.register_job(
-            job_id="job-123",
-            owner_id="owner_1",
-            org_id="org_1",
-            case_id="CASE-001"
-        )
+        fresh_acl.register_job(job_id="job-123", owner_id="owner_1", org_id="org_1", case_id="CASE-001")
 
         owner = TokenUser(user_id="owner_1", roles=[], organization="org_1")
 
@@ -106,17 +86,8 @@ class TestCaseAccessProvider:
 
     def test_job_access_via_case(self, fresh_acl):
         """User with case access can access job."""
-        fresh_acl.register_case(
-            case_id="CASE-001",
-            owner_id="owner_1",
-            org_id="org_1"
-        )
-        fresh_acl.register_job(
-            job_id="job-123",
-            owner_id="owner_1",
-            org_id="org_1",
-            case_id="CASE-001"
-        )
+        fresh_acl.register_case(case_id="CASE-001", owner_id="owner_1", org_id="org_1")
+        fresh_acl.register_job(job_id="job-123", owner_id="owner_1", org_id="org_1", case_id="CASE-001")
 
         colleague = TokenUser(user_id="colleague", roles=[], organization="org_1")
 
@@ -140,11 +111,7 @@ class TestCaseAccessController:
 
     def test_enforce_allowed_case_passes(self, fresh_acl, monkeypatch):
         """Enforce passes for allowed case."""
-        fresh_acl.register_case(
-            case_id="CASE-001",
-            owner_id="test_user",
-            org_id="test_org"
-        )
+        fresh_acl.register_case(case_id="CASE-001", owner_id="test_user", org_id="test_org")
         monkeypatch.setattr("core.acl.case_access_provider", fresh_acl)
 
         user = TokenUser(user_id="test_user", roles=[], organization="test_org")
@@ -163,12 +130,7 @@ class TestCaseAccessController:
 
     def test_enforce_job_access_denied(self, fresh_acl, monkeypatch):
         """Enforce job access raises 403 for unauthorized user."""
-        fresh_acl.register_job(
-            job_id="job-123",
-            owner_id="owner_1",
-            org_id="org_1",
-            case_id="CASE-001"
-        )
+        fresh_acl.register_job(job_id="job-123", owner_id="owner_1", org_id="org_1", case_id="CASE-001")
         monkeypatch.setattr("core.acl.case_access_provider", fresh_acl)
 
         user = TokenUser(user_id="outsider", roles=[], organization="org_2")

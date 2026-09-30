@@ -1,6 +1,7 @@
 """
 Authentication tests - Verify production auth doesn't allow fake admin.
 """
+
 import os
 
 import pytest
@@ -23,6 +24,7 @@ def setup_test_env():
     """Setup test environment."""
     os.environ["ENVIRONMENT"] = "test"
     from core.config import config
+
     config.environment = "test"
 
 
@@ -37,14 +39,7 @@ class TestAuthentication:
         client = TestClient(app)
 
         # Try to access MCP endpoint without auth
-        response = client.post(
-            "/mcp/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list"
-            }
-        )
+        response = client.post("/mcp/jsonrpc", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -57,12 +52,8 @@ class TestAuthentication:
 
         response = client.post(
             "/mcp/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list"
-            },
-            headers={"X-API-Key": "invalid-key"}
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+            headers={"X-API-Key": "invalid-key"},
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -76,12 +67,8 @@ class TestAuthentication:
 
         response = client.post(
             "/mcp/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list"
-            },
-            headers={"X-API-Key": "valid-key-123"}
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+            headers={"X-API-Key": "valid-key-123"},
         )
 
         assert response.status_code == 200
@@ -96,12 +83,8 @@ class TestAuthentication:
 
         response = client.post(
             "/mcp/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list"
-            },
-            headers={"X-Dev-Bypass": "allowed"}
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+            headers={"X-Dev-Bypass": "allowed"},
         )
 
         assert response.status_code == 200
@@ -114,12 +97,8 @@ class TestAuthentication:
 
         response = client.post(
             "/mcp/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list"
-            },
-            headers={"X-Dev-Bypass": "allowed"}
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+            headers={"X-Dev-Bypass": "allowed"},
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -131,14 +110,7 @@ class TestAuthentication:
         # Even if someone tries to bypass, they shouldn't get admin
         client = TestClient(app)
 
-        response = client.post(
-            "/mcp/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list"
-            }
-        )
+        response = client.post("/mcp/jsonrpc", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
 
         # Must be 401, not 200 with admin user
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -149,11 +121,7 @@ class TestTokenUser:
 
     def test_token_user_creation(self):
         """TokenUser can be created with proper fields."""
-        user = TokenUser(
-            user_id="test_user",
-            roles=["analyst"],
-            organization="test_org"
-        )
+        user = TokenUser(user_id="test_user", roles=["analyst"], organization="test_org")
 
         assert user.user_id == "test_user"
         assert "analyst" in user.roles
@@ -161,9 +129,6 @@ class TestTokenUser:
 
     def test_token_user_not_admin_by_default(self):
         """TokenUser is not admin by default."""
-        user = TokenUser(
-            user_id="test_user",
-            roles=["analyst"]
-        )
+        user = TokenUser(user_id="test_user", roles=["analyst"])
 
         assert "admin" not in user.roles

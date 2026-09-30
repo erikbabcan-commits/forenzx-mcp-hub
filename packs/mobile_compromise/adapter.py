@@ -2,6 +2,7 @@
 Reálny MVT Adaptér pre iOS a Android s plnou podporou STIX2 a SUSPICIOUS nálezov.
 Uses exact argv list format - NO shell strings.
 """
+
 from __future__ import annotations
 
 import json
@@ -38,25 +39,9 @@ class MobileCompromiseAdapter(ForensicPackAdapter):
 
         if spec.input_type == "ios_backup":
             # Exact argv list - no shell injection possible
-            return [
-                "mvt-ios",
-                "check-backup",
-                "--iocs",
-                ioc_mount,
-                "--output",
-                output_dir,
-                input_path
-            ]
+            return ["mvt-ios", "check-backup", "--iocs", ioc_mount, "--output", output_dir, input_path]
         elif spec.input_type == "android_backup":
-            return [
-                "mvt-android",
-                "check-backup",
-                "--iocs",
-                ioc_mount,
-                "--output",
-                output_dir,
-                input_path
-            ]
+            return ["mvt-android", "check-backup", "--iocs", ioc_mount, "--output", output_dir, input_path]
         else:
             raise ValueError(f"Nepodporovaný typ: {spec.input_type}")
 
@@ -75,12 +60,7 @@ class MobileCompromiseAdapter(ForensicPackAdapter):
         has_suspicious = False
 
         if not output_dir.exists():
-            return (
-                DetectionClassification.ERROR,
-                [],
-                [],
-                ["Výstupný adresár neexistuje."]
-            )
+            return (DetectionClassification.ERROR, [], [], ["Výstupný adresár neexistuje."])
 
         if not any(output_dir.iterdir()):
             warnings.append("Výstupný adresár je prázdny: žiadne výstupné artefakty.")

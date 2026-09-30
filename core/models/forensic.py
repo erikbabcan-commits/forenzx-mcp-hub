@@ -1,4 +1,5 @@
 """Pydantic models for deterministic forensic entities and integrity records."""
+
 from __future__ import annotations
 
 import enum
@@ -43,9 +44,19 @@ class EvidenceInputSpec(BaseModel):
     case_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.-]+$")
     evidence_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.-]+$")
     input_type: Literal[
-        "ios_backup", "ios_sysdiagnose", "ios_mobileconfig", "ios_app_container",
-        "android_backup", "android_bugreport", "android_app_export", "android_filesystem_export",
-        "mobile_generic_archive", "disk_raw", "evtx_logs", "pcap", "file_generic"
+        "ios_backup",
+        "ios_sysdiagnose",
+        "ios_mobileconfig",
+        "ios_app_container",
+        "android_backup",
+        "android_bugreport",
+        "android_app_export",
+        "android_filesystem_export",
+        "mobile_generic_archive",
+        "disk_raw",
+        "evtx_logs",
+        "pcap",
+        "file_generic",
     ]
     claimed_sha256: Optional[str] = Field(None, pattern=r"^[a-fA-F0-9]{64}$")
     examiner: str = "authenticated_analyst"
@@ -133,6 +144,7 @@ class PackManifest(BaseModel):
 
 class ExecutionRecord(BaseModel):
     """Canonical execution record; HMAC stays for compatibility and Ed25519 is independently verifiable."""
+
     record_version: str = "2"
     case_id: str
     evidence_id: str
@@ -199,7 +211,10 @@ class AnalysisResult(BaseModel):
 
     @model_validator(mode="after")
     def enforce_failure_invariant(self) -> "AnalysisResult":
-        if self.status in {AnalysisState.FAILED, AnalysisState.SECURITY_BLOCKED} and self.summary_classification != DetectionClassification.ERROR:
+        if (
+            self.status in {AnalysisState.FAILED, AnalysisState.SECURITY_BLOCKED}
+            and self.summary_classification != DetectionClassification.ERROR
+        ):
             raise ValueError("INVARIANT VIOLATION: failed/security-blocked analysis must have classification ERROR")
         return self
 

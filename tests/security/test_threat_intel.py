@@ -1,6 +1,7 @@
 """
 Threat Intel tests - Verify fail-closed IOC bundle loading.
 """
+
 import pytest
 
 from core.config import config
@@ -71,12 +72,13 @@ class TestThreatIntelVault:
                     "id": "indicator--test-1",
                     "name": "Test IOC",
                     "pattern": "[domain-name:value = 'test.example.com']",
-                    "pattern_type": "stix"
+                    "pattern_type": "stix",
                 }
-            ]
+            ],
         }
 
         import json
+
         with open(bundle_path, "w") as f:
             json.dump(valid_bundle, f)
 
@@ -105,6 +107,7 @@ class TestThreatIntelVault:
 
         # Read the file to verify it's STIX2
         import json
+
         with open(path, "r") as f:
             bundle = json.load(f)
 
@@ -118,6 +121,7 @@ class TestThreatIntelVault:
         # Create a bundle
         bundle_path = tmp_path / "cached_bundle.stix2"
         import json
+
         with open(bundle_path, "w") as f:
             json.dump({"type": "bundle", "id": "bundle--cache-test", "objects": []}, f)
 
@@ -141,6 +145,7 @@ class TestThreatIntelVault:
         # Create a bundle
         bundle_path = tmp_path / "info_bundle.stix2"
         import json
+
         with open(bundle_path, "w") as f:
             json.dump({"type": "bundle", "id": "bundle--info-test", "objects": []}, f)
 
@@ -169,7 +174,7 @@ class TestIOCBundleInfo:
             version="1.0.0",
             sha256="a" * 64,
             source="/path/to/bundle",
-            loaded_at="2024-01-01T00:00:00Z"
+            loaded_at="2024-01-01T00:00:00Z",
         )
 
         assert info.bundle_name == "test_bundle"

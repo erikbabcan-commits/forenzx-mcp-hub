@@ -1,9 +1,10 @@
 """ForenZX v5 MCP engine with canonical tools and backward-compatible aliases."""
+
 from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from fastapi import HTTPException
 
@@ -157,7 +158,8 @@ class MCPServer:
             spec = EvidenceInputSpec(
                 case_id=case_id,
                 evidence_id=evidence_id,
-                input_type=input_type,
+                # Runtime validation of the literal happens in EvidenceInputSpec (fail closed).
+                input_type=cast(Any, input_type),
                 claimed_sha256=claimed_sha256,
             )
             job_id, _, created = job_manager.create_job_ex(
@@ -206,10 +208,10 @@ class MCPServer:
             target_job_id = str(args.get("job_id") or "")
             if not target_job_id:
                 raise MCPError("Missing job_id parameter")
-            spec = job_manager.get_spec(target_job_id)
-            if not spec:
+            job_spec = job_manager.get_spec(target_job_id)
+            if not job_spec:
                 raise MCPError("Job not found")
-            CaseAccessController.enforce_job_access(user, target_job_id, spec.case_id)
+            CaseAccessController.enforce_job_access(user, target_job_id, job_spec.case_id)
 
             if name == "forenzx_analysis_status":
                 status = job_manager.get_status(target_job_id)
@@ -246,14 +248,17 @@ class MCPServer:
 
             # Compatibility only. The modern /mcp route does not require an initialize session.
             if method == "initialize":
-                return json.dumps({
-                    "jsonrpc": "2.0", "id": req_id,
-                    "result": {
-                        "protocolVersion": self.MCP_PROTOCOL_VERSION,
-                        "serverInfo": {"name": self.SERVER_NAME, "version": self.SERVER_VERSION},
-                        "capabilities": {"tools": {}},
-                    },
-                })
+                return json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": {
+                            "protocolVersion": self.MCP_PROTOCOL_VERSION,
+                            "serverInfo": {"name": self.SERVER_NAME, "version": self.SERVER_VERSION},
+                            "capabilities": {"tools": {}},
+                        },
+                    }
+                )
 
             if method == "ping":
                 return json.dumps({"jsonrpc": "2.0", "id": req_id, "result": {}})
@@ -270,10 +275,17 @@ class MCPServer:
                     return self._error(req_id, -32602, "arguments must be an object")
                 try:
                     result = await self.handle_tool_call(str(name), arguments, user)
-                    return json.dumps({
-                        "jsonrpc": "2.0", "id": req_id,
-                        "result": {"content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}], "isError": False},
-                    }, ensure_ascii=False)
+                    return json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": req_id,
+                            "result": {
+                                "content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}],
+                                "isError": False,
+                            },
+                        },
+                        ensure_ascii=False,
+                    )
                 except (MCPError, ValueError) as exc:
                     return self._error(req_id, -32602, str(exc))
                 except HTTPException as exc:
@@ -282,10 +294,12 @@ class MCPServer:
             return self._error(req_id, -32601, f"Method '{method}' is not supported")
         except json.JSONDecodeError as exc:
             return self._error(None, -32700, f"Invalid JSON: {exc}")
-        except Exception as exc:
+        except Exception:
             logger.exception("Internal JSON-RPC error")
             return self._error(None, -32603, "Internal server error")
 
     @staticmethod
     def _error(req_id: Any, code: int, message: str) -> str:
-        return json.dumps({"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}, ensure_ascii=False)
+        return json.dumps(
+            {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}, ensure_ascii=False
+        )

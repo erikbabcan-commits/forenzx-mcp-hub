@@ -1,7 +1,8 @@
 """
 Docker tests - Verify image digest verification and sandbox security.
 """
-from unittest.mock import MagicMock, patch
+
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -29,7 +30,11 @@ class TestDockerDigestVerification:
     def test_mismatching_digest_fails(self):
         client = MagicMock()
         image = MagicMock()
-        image.attrs = {"RepoDigests": ["ghcr.io/test/image@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}
+        image.attrs = {
+            "RepoDigests": [
+                "ghcr.io/test/image@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ]
+        }
         client.images.get.return_value = image
         with pytest.raises(DockerDigestVerificationError, match="IMAGE_DIGEST_MISMATCH"):
             SandboxSecurityManager.verify_image_digest(
@@ -57,21 +62,13 @@ class TestSandboxSecurityConfig:
     @pytest.fixture(autouse=True)
     def mock_digest(self, monkeypatch):
         monkeypatch.setattr(
-            SandboxSecurityManager,
-            "verify_image_digest",
-            lambda image, pinned_digest, client=None: "sha256:123"
+            SandboxSecurityManager, "verify_image_digest", lambda image, pinned_digest, client=None: "sha256:123"
         )
 
     def test_read_only_filesystem(self):
         """Root filesystem must be read-only."""
         config = SandboxSecurityManager.get_config(
-            image="test",
-            mounts=[],
-            cmd=["test"],
-            mem_mb=1024,
-            cpu_cores=1.0,
-            net=False,
-            pinned_digest="sha256:123"
+            image="test", mounts=[], cmd=["test"], mem_mb=1024, cpu_cores=1.0, net=False, pinned_digest="sha256:123"
         )
 
         assert config["read_only"] is True
@@ -79,13 +76,7 @@ class TestSandboxSecurityConfig:
     def test_no_network_by_default(self):
         """Network must be disabled by default."""
         config = SandboxSecurityManager.get_config(
-            image="test",
-            mounts=[],
-            cmd=["test"],
-            mem_mb=1024,
-            cpu_cores=1.0,
-            net=False,
-            pinned_digest="sha256:123"
+            image="test", mounts=[], cmd=["test"], mem_mb=1024, cpu_cores=1.0, net=False, pinned_digest="sha256:123"
         )
 
         assert config["network_mode"] == "none"
@@ -93,13 +84,7 @@ class TestSandboxSecurityConfig:
     def test_network_bridge_when_required(self):
         """Network can be enabled when required by manifest."""
         config = SandboxSecurityManager.get_config(
-            image="test",
-            mounts=[],
-            cmd=["test"],
-            mem_mb=1024,
-            cpu_cores=1.0,
-            net=True,
-            pinned_digest="sha256:123"
+            image="test", mounts=[], cmd=["test"], mem_mb=1024, cpu_cores=1.0, net=True, pinned_digest="sha256:123"
         )
 
         assert config["network_mode"] == "bridge"
@@ -107,13 +92,7 @@ class TestSandboxSecurityConfig:
     def test_capabilities_dropped(self):
         """All capabilities must be dropped."""
         config = SandboxSecurityManager.get_config(
-            image="test",
-            mounts=[],
-            cmd=["test"],
-            mem_mb=1024,
-            cpu_cores=1.0,
-            net=False,
-            pinned_digest="sha256:123"
+            image="test", mounts=[], cmd=["test"], mem_mb=1024, cpu_cores=1.0, net=False, pinned_digest="sha256:123"
         )
 
         assert config["cap_drop"] == ["ALL"]
@@ -121,13 +100,7 @@ class TestSandboxSecurityConfig:
     def test_no_new_privileges(self):
         """No new privileges must be enabled."""
         config = SandboxSecurityManager.get_config(
-            image="test",
-            mounts=[],
-            cmd=["test"],
-            mem_mb=1024,
-            cpu_cores=1.0,
-            net=False,
-            pinned_digest="sha256:123"
+            image="test", mounts=[], cmd=["test"], mem_mb=1024, cpu_cores=1.0, net=False, pinned_digest="sha256:123"
         )
 
         assert "no-new-privileges:true" in config["security_opt"]
@@ -135,13 +108,7 @@ class TestSandboxSecurityConfig:
     def test_memory_limits_applied(self):
         """Memory limits must be applied."""
         config = SandboxSecurityManager.get_config(
-            image="test",
-            mounts=[],
-            cmd=["test"],
-            mem_mb=4096,
-            cpu_cores=2.0,
-            net=False,
-            pinned_digest="sha256:123"
+            image="test", mounts=[], cmd=["test"], mem_mb=4096, cpu_cores=2.0, net=False, pinned_digest="sha256:123"
         )
 
         assert config["mem_limit"] == "4096m"
@@ -150,13 +117,7 @@ class TestSandboxSecurityConfig:
     def test_cpu_limits_applied(self):
         """CPU limits must be applied."""
         config = SandboxSecurityManager.get_config(
-            image="test",
-            mounts=[],
-            cmd=["test"],
-            mem_mb=1024,
-            cpu_cores=2.5,
-            net=False,
-            pinned_digest="sha256:123"
+            image="test", mounts=[], cmd=["test"], mem_mb=1024, cpu_cores=2.5, net=False, pinned_digest="sha256:123"
         )
 
         # cpu_period is 100000, cpu_quota is cpu_cores * 100000
@@ -165,18 +126,10 @@ class TestSandboxSecurityConfig:
 
     def test_mounts_read_only(self):
         """Mounts must be read-only by default."""
-        mounts = [
-            {"host_path": "/host/path", "container_path": "/container/path"}
-        ]
+        mounts = [{"host_path": "/host/path", "container_path": "/container/path"}]
 
         config = SandboxSecurityManager.get_config(
-            image="test",
-            mounts=mounts,
-            cmd=["test"],
-            mem_mb=1024,
-            cpu_cores=1.0,
-            net=False,
-            pinned_digest="sha256:123"
+            image="test", mounts=mounts, cmd=["test"], mem_mb=1024, cpu_cores=1.0, net=False, pinned_digest="sha256:123"
         )
 
         assert "/host/path" in config["volumes"]
@@ -185,13 +138,7 @@ class TestSandboxSecurityConfig:
     def test_tmpfs_secure(self):
         """Tmpfs must have secure mount options."""
         config = SandboxSecurityManager.get_config(
-            image="test",
-            mounts=[],
-            cmd=["test"],
-            mem_mb=1024,
-            cpu_cores=1.0,
-            net=False,
-            pinned_digest="sha256:123"
+            image="test", mounts=[], cmd=["test"], mem_mb=1024, cpu_cores=1.0, net=False, pinned_digest="sha256:123"
         )
 
         assert "/tmp" in config["tmpfs"]
@@ -207,21 +154,13 @@ class TestPIDLimits:
     @pytest.fixture(autouse=True)
     def mock_digest(self, monkeypatch):
         monkeypatch.setattr(
-            SandboxSecurityManager,
-            "verify_image_digest",
-            lambda image, pinned_digest, client=None: "sha256:123"
+            SandboxSecurityManager, "verify_image_digest", lambda image, pinned_digest, client=None: "sha256:123"
         )
 
     def test_pids_limit_applied(self):
         """PIDs limit must be applied."""
         config = SandboxSecurityManager.get_config(
-            image="test",
-            mounts=[],
-            cmd=["test"],
-            mem_mb=1024,
-            cpu_cores=1.0,
-            net=False,
-            pinned_digest="sha256:123"
+            image="test", mounts=[], cmd=["test"], mem_mb=1024, cpu_cores=1.0, net=False, pinned_digest="sha256:123"
         )
 
         assert config["pids_limit"] == 128

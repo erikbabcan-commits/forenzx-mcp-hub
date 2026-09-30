@@ -60,3 +60,12 @@ tmp/
 *.db
 *.db-shm
 *.db-wal
+
+# Poetry
+poetry.toml
+
+# Local SQLite scratch from offline verification
+*.sqlite3
+
+# OS
+.DS_Store

@@ -1,8 +1,9 @@
 """ForenZX v5 configuration with safe defaults and fail-closed production checks."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, List, Literal
+from typing import Any, ClassVar, List, Literal, Tuple
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -73,6 +74,35 @@ class AppConfig(BaseSettings):
             self._require_strong_secret(self.server_hmac_signing_key, "server_hmac_signing_key")
             if not self.admin_api_keys:
                 raise ValueError("Production requires at least one ADMIN_API_KEYS entry.")
+            db_path = str(self.database_path)
+            if db_path in {":memory:", ""} or db_path.startswith("file::memory:"):
+                raise ValueError(
+                    "Production/staging requires persistent DATABASE_PATH; memory-only persistence is rejected."
+                )
+            for key in (*self.admin_api_keys, *self.api_keys):
+                lowered = key.lower()
+                forbidden_values = {
+                    "dev-admin-key",
+                    "dev-analyst-key",
+                    "changeme",
+                    "admin",
+                    "password",
+                    "secret",
+                    "test",
+                    "insecure",
+                }
+                weak = (
+                    not key
+                    or lowered.startswith("change_me")
+                    or lowered in forbidden_values
+                    or any(x in lowered for x in ("change_me", "placeholder", "insecure", "dev-secret"))
+                    or self._secret_entropy_too_low(key)
+                )
+                if weak:
+                    raise ValueError(
+                        "Production requires real per-deployment API keys; development, placeholder "
+                        "and low-entropy keys are rejected."
+                    )
         else:
             if not self.jwt_secret_key:
                 self.jwt_secret_key = "dev-jwt-secret-key-32-characters-minimum-only"
@@ -84,11 +114,60 @@ class AppConfig(BaseSettings):
                 self.api_keys = ["dev-analyst-key"]
         return self
 
+    # Obviously weak placeholder substrings; production rejects all of them.
+    _FORBIDDEN_SECRET_SUBSTRINGS: ClassVar[Tuple[str, ...]] = (
+        "change_me",
+        "changeme",
+        "insecure",
+        "dev-secret",
+        "dev-jwt",
+        "dev-hmac",
+        "placeholder",
+        "example",
+        "password",
+        "default",
+        "forenzx.local",
+    )
+    # Keyboard walks look high-entropy (many distinct chars) but are trivially
+    # guessable; production rejects them explicitly.
+    _KEYBOARD_SEQUENCES: ClassVar[Tuple[str, ...]] = (
+        "qwertyuiop",
+        "asdfghjkl",
+        "zxcvbnm",
+        "1234567890",
+        "azertyuiop",
+        "qwertz",
+    )
+
     @staticmethod
-    def _require_strong_secret(value: str, name: str) -> None:
+    def _secret_entropy_too_low(value: str) -> bool:
+        """Reject obviously low-entropy secrets (e.g. "a"*32, keyboard walks).
+
+        A 32+ char random value almost always has >= max(8, len/4) distinct
+        characters; repeated-character or single-symbol secrets do not.
+        """
+        distinct = len(set(value))
+        return distinct < max(8, len(value) // 4)
+
+    @classmethod
+    def is_obviously_weak_secret(cls, value: str) -> bool:
+        """Public helper: True if the value is a placeholder or low-entropy secret."""
         lowered = (value or "").lower()
-        if not value or len(value) < 32 or any(x in lowered for x in ("insecure", "change_me", "changeme", "dev-secret")):
-            raise ValueError(f"{name} must be a strong secret with at least 32 characters.")
+        return (
+            not value
+            or len(value) < 32
+            or any(x in lowered for x in cls._FORBIDDEN_SECRET_SUBSTRINGS)
+            or any(seq in lowered for seq in cls._KEYBOARD_SEQUENCES)
+            or cls._secret_entropy_too_low(value)
+        )
+
+    @classmethod
+    def _require_strong_secret(cls, value: str, name: str) -> None:
+        if cls.is_obviously_weak_secret(value):
+            raise ValueError(
+                f"{name} must be a strong secret: at least 32 characters, high entropy, "
+                "free of placeholder patterns (dev-secret/default/insecure/...)."
+            )
 
 
 ForenzxConfig = AppConfig

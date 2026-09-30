@@ -1,4 +1,5 @@
 """ForenZX MCP Hub v5: forensic MCP endpoint + low-maintenance MCP server dashboard."""
+
 from __future__ import annotations
 
 import argparse
@@ -13,7 +14,7 @@ from typing import Annotated, Optional
 
 import jwt
 import uvicorn
-from fastapi import Body, Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -59,6 +60,7 @@ async def lifespan(_: FastAPI):
                 await _health_task
             _health_task = None
 
+
 app = FastAPI(
     lifespan=lifespan,
     title="ForenZX MCP Hub",
@@ -84,7 +86,15 @@ else:
         allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "X-API-Key", "Content-Type", "X-Dev-Bypass", "MCP-Protocol-Version", "Mcp-Method", "Mcp-Name"],
+        allow_headers=[
+            "Authorization",
+            "X-API-Key",
+            "Content-Type",
+            "X-Dev-Bypass",
+            "MCP-Protocol-Version",
+            "Mcp-Method",
+            "Mcp-Name",
+        ],
     )
 
 
@@ -139,7 +149,6 @@ class AuthConfig:
             )
         except Exception:
             return None
-
 
     # v4 compatibility helpers used by older integrations/tests.
     verify_jwt = jwt_user
@@ -201,7 +210,11 @@ async def _health_monitor() -> None:
 
 @app.get("/")
 async def root():
-    return RedirectResponse("/dashboard") if config.dashboard_enabled else JSONResponse({"service": "forenzx_mcp", "version": "5.0.0"})
+    return (
+        RedirectResponse("/dashboard")
+        if config.dashboard_enabled
+        else JSONResponse({"service": "forenzx_mcp", "version": "5.0.0"})
+    )
 
 
 @app.get("/dashboard")
@@ -256,7 +269,7 @@ async def stream_job_events(job_id: str, user: TokenUser = Depends(get_current_u
         while True:
             st = job_manager.get_status(job_id)
             if not st:
-                yield "data: {\"error\":\"Job not found\"}\n\n"
+                yield 'data: {"error":"Job not found"}\n\n'
                 return
             yield f"data: {st.model_dump_json()}\n\n"
             if st.state.value in {"COMPLETED", "FAILED", "CANCELLED", "SECURITY_BLOCKED"}:
@@ -282,14 +295,17 @@ async def health_ready():
     if config.environment == "production" and not enabled_packs:
         state = "BLOCKED"
         status_code = 503
-    return JSONResponse(status_code=status_code, content={
-        "status": state,
-        "version": "5.0.0",
-        "database": "READY" if config.database_path.exists() else "DEGRADED",
-        "packs_enabled": len(enabled_packs),
-        "pack_errors": errors,
-        "signing": signer.public_info(),
-    })
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": state,
+            "version": "5.0.0",
+            "database": "READY" if config.database_path.exists() else "DEGRADED",
+            "packs_enabled": len(enabled_packs),
+            "pack_errors": errors,
+            "signing": signer.public_info(),
+        },
+    )
 
 
 @app.get("/health")
@@ -300,8 +316,12 @@ async def health_compat():
 @app.get("/api/system/capabilities")
 async def capabilities(user: TokenUser = Depends(get_current_user)):
     return {
-        "service": "forenzx_mcp", "version": "5.0.0", "mcpProtocol": "2026-07-28",
-        "dashboard": config.dashboard_enabled, "packs": pack_registry.describe(), "signing": signer.public_info(),
+        "service": "forenzx_mcp",
+        "version": "5.0.0",
+        "mcpProtocol": "2026-07-28",
+        "dashboard": config.dashboard_enabled,
+        "packs": pack_registry.describe(),
+        "signing": signer.public_info(),
     }
 
 
@@ -362,6 +382,30 @@ async def mcp_server_tools(server_id: str, _: TokenUser = Depends(get_admin)):
         raise HTTPException(status_code=502, detail=str(exc))
 
 
+@app.put("/api/v1/mcp-servers/{server_id}/trust")
+async def set_mcp_server_trust(
+    server_id: str,
+    trust_state: str = Body(embed=True),
+    user: TokenUser = Depends(get_admin),
+    x_trace_id: Annotated[Optional[str], Header()] = None,
+):
+    """Explicitly set remote MCP trust state (admin decision, never automatic).
+
+    HEALTHY != TRUSTED: probes never promote a server; only this endpoint does.
+    """
+    from core.mcp_registry import VALID_TRUST_STATES
+
+    if trust_state not in VALID_TRUST_STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid trust_state; expected one of {sorted(VALID_TRUST_STATES)}",
+        )
+    result = mcp_registry.set_trust_state(server_id, trust_state, user.user_id, trace_id=x_trace_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="MCP server not found")
+    return result
+
+
 @app.post("/api/v1/mcp-servers/{server_id}/restart")
 async def restart_mcp_server(server_id: str, user: TokenUser = Depends(get_admin)):
     try:
@@ -415,19 +459,22 @@ async def set_pack_digest(pack_id: str, digest: str = Body(embed=True), user: To
 
 @app.post("/api/v1/ops/maintenance/vacuum")
 async def maintenance_vacuum(user: TokenUser = Depends(get_admin)):
-    vacuum_database(); db.event(user.user_id, "DB_VACUUM", None, True, {})
+    vacuum_database()
+    db.event(user.user_id, "DB_VACUUM", None, True, {})
     return {"ok": True, "summary": system_summary()}
 
 
 @app.post("/api/v1/ops/maintenance/prune")
 async def maintenance_prune(days: int = Body(default=30, embed=True), user: TokenUser = Depends(get_admin)):
-    deleted = prune_events(days); db.event(user.user_id, "AUDIT_PRUNE", None, True, {"days": days, "deleted": deleted})
+    deleted = prune_events(days)
+    db.event(user.user_id, "AUDIT_PRUNE", None, True, {"days": days, "deleted": deleted})
     return {"ok": True, "deleted": deleted}
 
 
 @app.post("/api/v1/ops/maintenance/backup")
 async def maintenance_backup(user: TokenUser = Depends(get_admin)):
-    path = backup_database(); db.event(user.user_id, "DB_BACKUP", None, True, {"file": path.name})
+    path = backup_database()
+    db.event(user.user_id, "DB_BACKUP", None, True, {"file": path.name})
     return {"ok": True, "file": path.name, "download": f"/api/v1/ops/backups/{path.name}"}
 
 
@@ -470,8 +517,13 @@ def main() -> None:
     if args.stdio:
         asyncio.run(run_cli_stdio())
     else:
-        uvicorn.run("core.main:app", host=args.host or config.host, port=args.port or config.port,
-                    reload=config.environment == "development", log_level="info")
+        uvicorn.run(
+            "core.main:app",
+            host=args.host or config.host,
+            port=args.port or config.port,
+            reload=config.environment == "development",
+            log_level="info",
+        )
 
 
 if __name__ == "__main__":

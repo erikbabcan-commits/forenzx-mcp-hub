@@ -1,4 +1,11 @@
-"""Small SQLite persistence layer for jobs, results, MCP registry and maintenance audit."""
+"""Small SQLite persistence layer for jobs, results, MCP registry and maintenance audit.
+
+Schema changes go through the versioned migration mechanism in
+``core/migrations.py`` — never through ad-hoc DDL here. This module is the
+single storage interface (ADR-0002): a future PostgreSQL backend implements
+the same surface.
+"""
+
 from __future__ import annotations
 
 import json
@@ -9,6 +16,7 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 from core.config import config
+from core.migrations import LATEST_VERSION, current_version, migrate
 
 
 def utcnow() -> str:
@@ -18,7 +26,8 @@ def utcnow() -> str:
 class Database:
     def __init__(self, path: Optional[Path] = None) -> None:
         self.path = Path(path or config.database_path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if str(self.path) != ":memory:":
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self.init_schema()
 
     @contextmanager
@@ -27,6 +36,7 @@ class Database:
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=10000")
         try:
             yield conn
             conn.commit()
@@ -34,74 +44,16 @@ class Database:
             conn.close()
 
     def init_schema(self) -> None:
+        """Apply pending versioned migrations (see core/migrations.py)."""
         with self.connect() as conn:
-            conn.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS mcp_servers (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    server_type TEXT NOT NULL,
-                    url TEXT NOT NULL,
-                    transport TEXT NOT NULL DEFAULT 'streamable_http',
-                    enabled INTEGER NOT NULL DEFAULT 1,
-                    auth_type TEXT NOT NULL DEFAULT 'none',
-                    auth_secret_encrypted TEXT,
-                    custom_headers_json TEXT NOT NULL DEFAULT '{}',
-                    tags_json TEXT NOT NULL DEFAULT '[]',
-                    notes TEXT NOT NULL DEFAULT '',
-                    maintenance_url TEXT,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    last_checked_at TEXT,
-                    last_status TEXT NOT NULL DEFAULT 'UNKNOWN',
-                    last_latency_ms INTEGER,
-                    last_error TEXT,
-                    last_tools_json TEXT NOT NULL DEFAULT '[]'
-                );
+            migrate(conn)
 
-                CREATE TABLE IF NOT EXISTS pack_overrides (
-                    pack_id TEXT PRIMARY KEY,
-                    pinned_digest TEXT NOT NULL,
-                    enabled INTEGER NOT NULL DEFAULT 1,
-                    updated_at TEXT NOT NULL
-                );
+    def schema_version(self) -> int:
+        with self.connect() as conn:
+            return current_version(conn)
 
-                CREATE TABLE IF NOT EXISTS registry_events (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ts TEXT NOT NULL,
-                    actor TEXT NOT NULL,
-                    action TEXT NOT NULL,
-                    target_id TEXT,
-                    success INTEGER NOT NULL,
-                    details_json TEXT NOT NULL DEFAULT '{}'
-                );
-
-                CREATE TABLE IF NOT EXISTS jobs (
-                    job_id TEXT PRIMARY KEY,
-                    case_id TEXT NOT NULL,
-                    evidence_id TEXT NOT NULL,
-                    pack_id TEXT NOT NULL,
-                    state TEXT NOT NULL,
-                    progress_percent INTEGER NOT NULL DEFAULT 0,
-                    current_stage TEXT NOT NULL,
-                    started_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    error_message TEXT,
-                    owner_id TEXT NOT NULL,
-                    organization_id TEXT NOT NULL,
-                    spec_json TEXT NOT NULL,
-                    idempotency_key TEXT
-                );
-
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_idempotency ON jobs(organization_id, case_id, evidence_id, pack_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
-
-                CREATE TABLE IF NOT EXISTS job_results (
-                    job_id TEXT PRIMARY KEY REFERENCES jobs(job_id) ON DELETE CASCADE,
-                    result_json TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                );
-                """
-            )
+    def expected_schema_version(self) -> int:
+        return LATEST_VERSION
 
     def fetchall(self, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
         with self.connect() as conn:
@@ -116,10 +68,28 @@ class Database:
         with self.connect() as conn:
             conn.execute(sql, params)
 
-    def event(self, actor: str, action: str, target_id: str | None, success: bool, details: dict[str, Any] | None = None) -> None:
+    def event(
+        self,
+        actor: str,
+        action: str,
+        target_id: str | None,
+        success: bool,
+        details: dict[str, Any] | None = None,
+        trace_id: str | None = None,
+    ) -> None:
+        """Append an audit event. Never log secrets, keys or tokens in ``details``."""
         self.execute(
-            "INSERT INTO registry_events(ts,actor,action,target_id,success,details_json) VALUES(?,?,?,?,?,?)",
-            (utcnow(), actor, action, target_id, int(success), json.dumps(details or {}, ensure_ascii=False, sort_keys=True)),
+            "INSERT INTO registry_events(ts,actor,action,target_id,success,details_json,trace_id) "
+            "VALUES(?,?,?,?,?,?,?)",
+            (
+                utcnow(),
+                actor,
+                action,
+                target_id,
+                int(success),
+                json.dumps(details or {}, ensure_ascii=False, sort_keys=True),
+                trace_id,
+            ),
         )
 
 

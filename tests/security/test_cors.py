@@ -1,6 +1,7 @@
 """
 CORS tests - Verify production hardening.
 """
+
 import os
 
 import pytest
@@ -34,13 +35,7 @@ class TestCORSHardening:
         client = TestClient(app)
 
         # Try a preflight request
-        client.options(
-            "/mcp/jsonrpc",
-            headers={
-                "Origin": "http://evil.com",
-                "Access-Control-Request-Method": "POST"
-            }
-        )
+        client.options("/mcp/jsonrpc", headers={"Origin": "http://evil.com", "Access-Control-Request-Method": "POST"})
 
         # In production without configured origins, should not have CORS headers
         # or should deny the origin
@@ -67,7 +62,7 @@ class TestCORSHardening:
         response = client.post(
             "/mcp/jsonrpc",
             json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
-            headers={"Origin": "http://localhost:3000", "X-Dev-Bypass": "allowed"}
+            headers={"Origin": "http://localhost:3000", "X-Dev-Bypass": "allowed"},
         )
 
         # Should succeed and include CORS header

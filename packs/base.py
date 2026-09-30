@@ -1,6 +1,7 @@
 """
 Abstraktný ForensicPackAdapter - základ pre všetky forenzné packy.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

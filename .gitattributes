@@ -1,0 +1,26 @@
+* text=auto eol=lf
+
+*.py       text diff=python
+*.md       text
+*.json     text
+*.yml      text
+*.yaml     text
+*.toml     text
+*.ini      text
+*.sh       text eol=lf
+*.cfg      text
+*.txt      text
+Dockerfile text
+
+*.db      binary
+*.db-wal binary
+*.db-shm binary
+*.pem    binary
+*.png    binary
+*.jpg    binary
+*.ico    binary
+
+# Forensic artifacts are opaque and must never be diffed/merged
+*.stix2  binary -diff
+*.raw    binary -diff
+*.E01    binary -diff

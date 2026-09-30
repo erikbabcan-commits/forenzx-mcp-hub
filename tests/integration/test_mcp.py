@@ -1,6 +1,7 @@
 """
 MCP tests - Verify protocol conformance.
 """
+
 import json
 
 import pytest
@@ -31,11 +32,7 @@ class TestMCPInitialize:
         """Initialize must return correct protocol version."""
         user = TokenUser(user_id="test", roles=["analyst"])
 
-        request = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize"
-        })
+        request = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize"})
 
         response = await mcp_server.process_json_rpc(request, user)
         result = json.loads(response)
@@ -55,11 +52,7 @@ class TestMCPToolsList:
         """Tools/list must return all available tools."""
         user = TokenUser(user_id="test", roles=["analyst"])
 
-        request = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/list"
-        })
+        request = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
 
         response = await mcp_server.process_json_rpc(request, user)
         result = json.loads(response)
@@ -74,11 +67,7 @@ class TestMCPToolsList:
         """Tools/list must include expected tools."""
         user = TokenUser(user_id="test", roles=["analyst"])
 
-        request = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/list"
-        })
+        request = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
 
         response = await mcp_server.process_json_rpc(request, user)
         result = json.loads(response)
@@ -99,15 +88,9 @@ class TestMCPToolsCall:
         """mcp_list_packs must return packs."""
         user = TokenUser(user_id="test", roles=["analyst"])
 
-        request = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "name": "mcp_list_packs",
-                "arguments": {}
-            }
-        })
+        request = json.dumps(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "mcp_list_packs", "arguments": {}}}
+        )
 
         response = await mcp_server.process_json_rpc(request, user)
         result = json.loads(response)
@@ -129,11 +112,7 @@ class TestMCPErrorHandling:
         """Unknown method must return error code -32601."""
         user = TokenUser(user_id="test", roles=["analyst"])
 
-        request = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "unknown_method"
-        })
+        request = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "unknown_method"})
 
         response = await mcp_server.process_json_rpc(request, user)
         result = json.loads(response)
@@ -147,15 +126,9 @@ class TestMCPErrorHandling:
         """Unknown tool must return error code -32601 (via tools/call)."""
         user = TokenUser(user_id="test", roles=["analyst"])
 
-        request = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "name": "unknown_tool",
-                "arguments": {}
-            }
-        })
+        request = json.dumps(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "unknown_tool", "arguments": {}}}
+        )
 
         response = await mcp_server.process_json_rpc(request, user)
         result = json.loads(response)
@@ -181,14 +154,7 @@ class TestMCPErrorHandling:
         """Missing tool name must return error code -32602."""
         user = TokenUser(user_id="test", roles=["analyst"])
 
-        request = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "arguments": {}
-            }
-        })
+        request = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"arguments": {}}})
 
         response = await mcp_server.process_json_rpc(request, user)
         result = json.loads(response)
