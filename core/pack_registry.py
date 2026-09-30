@@ -1,4 +1,5 @@
 """Pack registry with safe degraded loading and digest maintenance."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -37,7 +38,10 @@ class PackRegistry:
         return (not DIGEST_RE.fullmatch(d)) or len(set(body)) < 8 or body.startswith("1234567890abcdef")
 
     def load_packs(self) -> None:
-        self._packs.clear(); self._adapters.clear(); self._manifest_paths.clear(); self._errors.clear()
+        self._packs.clear()
+        self._adapters.clear()
+        self._manifest_paths.clear()
+        self._errors.clear()
         packs_dir = (self.packs_dir or config.packs_dir).resolve()
         if not packs_dir.exists():
             self._errors["__registry__"] = f"Packs directory not found: {packs_dir}"
@@ -57,7 +61,9 @@ class PackRegistry:
                 data["enabled"] = bool(override["enabled"])
             manifest = PackManifest(**data)
             if self._looks_placeholder(manifest.pinned_image_digest):
-                self._errors[pack_id] = "Pinned image digest is placeholder/invalid. Pack disabled until a real RepoDigest is configured."
+                self._errors[pack_id] = (
+                    "Pinned image digest is placeholder/invalid. Pack disabled until a real RepoDigest is configured."
+                )
                 manifest = manifest.model_copy(update={"enabled": False})
             self._packs[pack_id] = manifest
             self._manifest_paths[pack_id] = manifest_path

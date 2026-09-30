@@ -1,4 +1,5 @@
 """Docker sandbox hardening with canonical RepoDigest verification."""
+
 from __future__ import annotations
 
 import hmac
@@ -56,8 +57,14 @@ class SandboxSecurityManager:
 
     @staticmethod
     def get_config(
-        image: str, mounts: List[Dict[str, Any]], cmd: List[str], mem_mb: int, cpu_cores: float,
-        net: bool, pinned_digest: str, client: Any = None,
+        image: str,
+        mounts: List[Dict[str, Any]],
+        cmd: List[str],
+        mem_mb: int,
+        cpu_cores: float,
+        net: bool,
+        pinned_digest: str,
+        client: Any = None,
     ) -> Dict[str, Any]:
         SandboxSecurityManager.verify_image_digest(image, pinned_digest, client=client)
         cfg: Dict[str, Any] = {
@@ -79,7 +86,5 @@ class SandboxSecurityManager:
             "volumes": {},
         }
         for m in mounts:
-            cfg["volumes"][str(m["host_path"])] = {
-                "bind": str(m["container_path"]), "mode": m.get("mode", "ro")
-            }
+            cfg["volumes"][str(m["host_path"])] = {"bind": str(m["container_path"]), "mode": m.get("mode", "ro")}
         return cfg

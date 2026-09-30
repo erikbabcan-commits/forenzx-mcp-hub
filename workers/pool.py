@@ -1,6 +1,7 @@
 """
 Paralelný worker pool s garanciou cleanupu.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,8 +24,8 @@ from core.models.forensic import (
     ExecutionRecord,
     PackManifest,
 )
-from core.threat_intel import ThreatIntelError, ThreatIntelVault
 from core.signing import signer
+from core.threat_intel import ThreatIntelError, ThreatIntelVault
 from core.utils.logger import get_logger
 from core.vault import EvidenceVault
 from workers.isolation import DockerDigestVerificationError, SandboxSecurityManager
@@ -115,7 +116,7 @@ class WorkerPool:
                             exit_code=-1,
                             started_at=datetime.now(timezone.utc).isoformat(),
                             completed_at=datetime.now(timezone.utc).isoformat(),
-                        )
+                        ),
                     )
 
                 # 3. Calculate pre-flight integrity hash
@@ -192,7 +193,7 @@ class WorkerPool:
                             exit_code=-1,
                             started_at=datetime.now(timezone.utc).isoformat(),
                             completed_at=datetime.now(timezone.utc).isoformat(),
-                        )
+                        ),
                     )
                 except Exception as e:
                     logger.error(f"Docker infrastructure unavailable: {e}")
@@ -225,7 +226,7 @@ class WorkerPool:
                             exit_code=-1,
                             started_at=datetime.now(timezone.utc).isoformat(),
                             completed_at=datetime.now(timezone.utc).isoformat(),
-                        )
+                        ),
                     )
 
                 # 8. Start container
@@ -242,8 +243,7 @@ class WorkerPool:
                 try:
                     loop = asyncio.get_running_loop()
                     res = await asyncio.wait_for(
-                        loop.run_in_executor(None, container.wait),
-                        timeout=manifest.timeout_seconds
+                        loop.run_in_executor(None, container.wait), timeout=manifest.timeout_seconds
                     )
                     exit_code = res.get("StatusCode", -1)
                     logs = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
@@ -269,14 +269,14 @@ class WorkerPool:
                         actor="vault_engine",
                         sha256_before=root_hash,
                         sha256_after=root_hash,
-                        details={"evidence_path": str(evd_path)}
+                        details={"evidence_path": str(evd_path)},
                     ),
                     ChainOfCustodyEntry(
                         action="DOCKER_SANDBOX_EXECUTION",
                         actor=manifest.container_image,
                         sha256_before=root_hash,
                         sha256_after=post_hash,
-                        details={"container_id": container.short_id if container else "unknown"}
+                        details={"container_id": container.short_id if container else "unknown"},
                     ),
                 ]
 
@@ -289,7 +289,7 @@ class WorkerPool:
                             actor="system",
                             sha256_before=root_hash,
                             sha256_after=post_hash,
-                            details={"severity": "CRITICAL"}
+                            details={"severity": "CRITICAL"},
                         )
                     )
 
@@ -324,14 +324,26 @@ class WorkerPool:
                 # Hard stop if read-only evidence changed despite sandbox policy.
                 if post_hash != root_hash:
                     return AnalysisResult(
-                        job_id=job_id, pack_id=manifest.id, pack_version=manifest.version,
-                        case_id=spec.case_id, evidence_id=spec.evidence_id,
-                        started_at=started_at.isoformat(), completed_at=completed_at.isoformat(),
-                        duration_seconds=duration, status=AnalysisState.SECURITY_BLOCKED,
+                        job_id=job_id,
+                        pack_id=manifest.id,
+                        pack_version=manifest.version,
+                        case_id=spec.case_id,
+                        evidence_id=spec.evidence_id,
+                        started_at=started_at.isoformat(),
+                        completed_at=completed_at.isoformat(),
+                        duration_seconds=duration,
+                        status=AnalysisState.SECURITY_BLOCKED,
                         summary_classification=DetectionClassification.ERROR,
-                        input_integrity={"root_sha256_before": root_hash, "root_sha256_after": post_hash, "size_bytes": size_b},
-                        findings=[], warnings=["Evidence integrity changed during analysis; result blocked"],
-                        limitations=["Security boundary violation"], chain_of_custody=coc, execution_record=rec,
+                        input_integrity={
+                            "root_sha256_before": root_hash,
+                            "root_sha256_after": post_hash,
+                            "size_bytes": size_b,
+                        },
+                        findings=[],
+                        warnings=["Evidence integrity changed during analysis; result blocked"],
+                        limitations=["Security boundary violation"],
+                        chain_of_custody=coc,
+                        execution_record=rec,
                     )
 
                 # 12. STRIKTNÝ INVARIANT: exit_code != 0 -> VÝHRADNE ERROR
@@ -349,13 +361,10 @@ class WorkerPool:
                         summary_classification=DetectionClassification.ERROR,
                         input_integrity={"root_sha256": root_hash, "size_bytes": size_b, "meta": meta},
                         findings=[],
-                        warnings=[
-                            f"Kontajner zlyhal (Exit {exit_code})",
-                            logs[-400:] if len(logs) > 400 else logs
-                        ],
+                        warnings=[f"Kontajner zlyhal (Exit {exit_code})", logs[-400:] if len(logs) > 400 else logs],
                         limitations=[
                             "Container execution failed",
-                            "Absence of known IOC matches does not prove absence of compromise."
+                            "Absence of known IOC matches does not prove absence of compromise.",
                         ],
                         chain_of_custody=coc,
                         execution_record=rec,
@@ -401,9 +410,9 @@ class WorkerPool:
                     findings=findings,
                     timeline=timeline,
                     warnings=warnings_list,
-                    limitations=[
-                        "Absence of known IOC matches does not prove absence of compromise."
-                    ] if classification == DetectionClassification.NO_KNOWN_IOC else [],
+                    limitations=["Absence of known IOC matches does not prove absence of compromise."]
+                    if classification == DetectionClassification.NO_KNOWN_IOC
+                    else [],
                     chain_of_custody=coc,
                     execution_record=rec,
                 )
@@ -440,7 +449,7 @@ class WorkerPool:
                         exit_code=-1,
                         started_at=datetime.now(timezone.utc).isoformat(),
                         completed_at=datetime.now(timezone.utc).isoformat(),
-                    )
+                    ),
                 )
 
             finally:
@@ -452,7 +461,9 @@ class WorkerPool:
                         pass
                     try:
                         container.remove(force=True)
-                        logger.info(f"Container cleaned up: {container.short_id if hasattr(container, 'short_id') else 'unknown'}")
+                        logger.info(
+                            f"Container cleaned up: {container.short_id if hasattr(container, 'short_id') else 'unknown'}"
+                        )
                     except Exception as e:
                         logger.error(f"Failed to remove container: {e}")
 

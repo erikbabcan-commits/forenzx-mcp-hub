@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Security scan script for ForenZX v5 codebase."""
+
 import re
 from pathlib import Path
 
@@ -38,13 +39,15 @@ def scan_file(file_path: Path) -> list:
                     for pattern, description in patterns:
                         try:
                             if re.search(pattern, line):
-                                findings.append({
-                                    "file": str(file_path),
-                                    "line": line_num,
-                                    "severity": severity,
-                                    "description": description,
-                                    "match": pattern
-                                })
+                                findings.append(
+                                    {
+                                        "file": str(file_path),
+                                        "line": line_num,
+                                        "severity": severity,
+                                        "description": description,
+                                        "match": pattern,
+                                    }
+                                )
                         except Exception:
                             # Skip patterns that fail to compile
                             pass
@@ -57,7 +60,17 @@ def scan_file(file_path: Path) -> list:
 def scan_directory(root_dir: Path) -> list:
     """Scan entire directory for security issues."""
     all_findings = []
-    excluded_dirs = {".venv", "venv", ".git", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache", "tests", "scripts"}
+    excluded_dirs = {
+        ".venv",
+        "venv",
+        ".git",
+        "__pycache__",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".mypy_cache",
+        "tests",
+        "scripts",
+    }
 
     for file_path in root_dir.rglob("*.py"):
         if any(part in excluded_dirs for part in file_path.parts):
@@ -78,7 +91,7 @@ def print_findings(findings: list):
         if filtered:
             print(f"\n{'=' * 70}")
             print(f"{severity} FINDINGS ({len(filtered)})")
-            print('=' * 70)
+            print("=" * 70)
             for f in filtered:
                 print(f"  [{f['severity']}] {f['file']}:{f['line']} - {f['description']}")
                 print(f"    Pattern: {f['match']}")

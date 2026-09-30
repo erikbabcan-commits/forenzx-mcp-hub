@@ -1,6 +1,7 @@
 """
 MVT tests - Verify command safety and parsing.
 """
+
 import json
 from pathlib import Path
 
@@ -29,6 +30,7 @@ def adapter():
     }
 
     from core.models.forensic import PackManifest
+
     manifest = PackManifest(**manifest_data)
 
     return MobileCompromiseAdapter(manifest, Path("/tmp"))
@@ -39,11 +41,7 @@ class TestMVTCommand:
 
     def test_ios_command_is_argv_list(self, adapter):
         """iOS command must be exact argv list, not shell string."""
-        spec = EvidenceInputSpec(
-            case_id="CASE-001",
-            evidence_id="EVIDENCE-001",
-            input_type="ios_backup"
-        )
+        spec = EvidenceInputSpec(case_id="CASE-001", evidence_id="EVIDENCE-001", input_type="ios_backup")
 
         cmd = adapter.get_execution_command(spec, {})
 
@@ -69,11 +67,7 @@ class TestMVTCommand:
 
     def test_android_command_is_argv_list(self, adapter):
         """Android command must be exact argv list."""
-        spec = EvidenceInputSpec(
-            case_id="CASE-001",
-            evidence_id="EVIDENCE-001",
-            input_type="android_backup"
-        )
+        spec = EvidenceInputSpec(case_id="CASE-001", evidence_id="EVIDENCE-001", input_type="android_backup")
 
         cmd = adapter.get_execution_command(spec, {})
 
@@ -84,22 +78,14 @@ class TestMVTCommand:
 
     def test_unsupported_input_type_fails(self, adapter):
         """Unsupported input type must raise ValueError."""
-        spec = EvidenceInputSpec(
-            case_id="CASE-001",
-            evidence_id="EVIDENCE-001",
-            input_type="disk_raw"
-        )
+        spec = EvidenceInputSpec(case_id="CASE-001", evidence_id="EVIDENCE-001", input_type="disk_raw")
 
         with pytest.raises(ValueError):
             adapter.get_execution_command(spec, {})
 
     def test_no_string_interpolation(self, adapter):
         """Command must not use string interpolation."""
-        spec = EvidenceInputSpec(
-            case_id="CASE-001",
-            evidence_id="EVIDENCE-001",
-            input_type="ios_backup"
-        )
+        spec = EvidenceInputSpec(case_id="CASE-001", evidence_id="EVIDENCE-001", input_type="ios_backup")
 
         cmd = adapter.get_execution_command(spec, {})
 
@@ -119,33 +105,21 @@ class TestInputValidation:
 
     async def test_validate_ios_input(self, adapter):
         """iOS input must be validated."""
-        spec = EvidenceInputSpec(
-            case_id="CASE-001",
-            evidence_id="EVIDENCE-001",
-            input_type="ios_backup"
-        )
+        spec = EvidenceInputSpec(case_id="CASE-001", evidence_id="EVIDENCE-001", input_type="ios_backup")
 
         result = await adapter.validate_input(spec)
         assert result is True
 
     async def test_validate_android_input(self, adapter):
         """Android input must be validated."""
-        spec = EvidenceInputSpec(
-            case_id="CASE-001",
-            evidence_id="EVIDENCE-001",
-            input_type="android_backup"
-        )
+        spec = EvidenceInputSpec(case_id="CASE-001", evidence_id="EVIDENCE-001", input_type="android_backup")
 
         result = await adapter.validate_input(spec)
         assert result is True
 
     async def test_validate_unsupported_input(self, adapter):
         """Unsupported input must be rejected."""
-        spec = EvidenceInputSpec(
-            case_id="CASE-001",
-            evidence_id="EVIDENCE-001",
-            input_type="disk_raw"
-        )
+        spec = EvidenceInputSpec(case_id="CASE-001", evidence_id="EVIDENCE-001", input_type="disk_raw")
 
         result = await adapter.validate_input(spec)
         assert result is False
@@ -186,11 +160,7 @@ class TestOutputParsing:
         detected_data = [
             {
                 "file_path": "/path/to/malicious",
-                "matched_indicator": {
-                    "name": "Pegasus IOC",
-                    "value": "malicious.example.com",
-                    "sha256": "abc123"
-                }
+                "matched_indicator": {"name": "Pegasus IOC", "value": "malicious.example.com", "sha256": "abc123"},
             }
         ]
 
@@ -211,12 +181,7 @@ class TestOutputParsing:
 
         # Create a suspicious JSON file
         suspicious_file = output_dir / "module2_suspicious.json"
-        suspicious_data = [
-            {
-                "file_path": "/path/to/suspicious",
-                "description": "Heuristic anomaly detected"
-            }
-        ]
+        suspicious_data = [{"file_path": "/path/to/suspicious", "description": "Heuristic anomaly detected"}]
 
         with open(suspicious_file, "w") as f:
             json.dump(suspicious_data, f)

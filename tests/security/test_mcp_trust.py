@@ -6,6 +6,7 @@ HEALTHY != TRUSTED:
 - trust changes only via an explicit, audited admin decision,
 - invalid trust states are rejected.
 """
+
 from __future__ import annotations
 
 import re

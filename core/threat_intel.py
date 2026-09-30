@@ -2,6 +2,7 @@
 Threat Intel Vault: Správa a verifikácia pinovaných STIX2 IoC balíkov.
 Fail-closed design - missing or corrupt bundles BLOCK execution.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -20,11 +21,13 @@ logger = get_logger(__name__)
 
 class ThreatIntelError(Exception):
     """Raised when threat intelligence validation fails."""
+
     pass
 
 
 class IOCBundleInfo(BaseModel):
     """Information about a loaded IOC bundle."""
+
     bundle_name: str
     version: str
     sha256: str
@@ -77,9 +80,9 @@ class ThreatIntelVault:
                             "pattern": "[domain-name:value = 'sample-malicious-infrastructure.test']",
                             "pattern_type": "stix",
                             "valid_from": "2024-01-01T00:00:00Z",
-                            "labels": ["malicious-activity", "spyware"]
+                            "labels": ["malicious-activity", "spyware"],
                         }
-                    ]
+                    ],
                 }
                 with open(bundle_path, "w", encoding="utf-8") as f:
                     json.dump(sample_bundle, f, indent=2)
@@ -97,8 +100,7 @@ class ThreatIntelVault:
             json.loads(bundle_content)
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
             raise ThreatIntelError(
-                f"THREAT INTEL FAIL CLOSED: IOC bundle '{bundle_name}' is corrupt. "
-                f"Error: {e}. Analysis blocked."
+                f"THREAT INTEL FAIL CLOSED: IOC bundle '{bundle_name}' is corrupt. " f"Error: {e}. Analysis blocked."
             )
 
         # Compute hash
@@ -116,7 +118,7 @@ class ThreatIntelVault:
             version=version,
             sha256=bundle_sha256,
             source=str(bundle_path),
-            loaded_at=datetime.now(timezone.utc).isoformat()
+            loaded_at=datetime.now(timezone.utc).isoformat(),
         )
         cls._loaded_bundles[bundle_name] = bundle_info
 

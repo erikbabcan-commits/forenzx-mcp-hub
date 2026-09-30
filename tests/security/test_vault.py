@@ -1,6 +1,7 @@
 """
 Vault tests - Verify path traversal and symlink protection.
 """
+
 from pathlib import Path
 
 import pytest

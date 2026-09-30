@@ -1,13 +1,14 @@
 """
 Pack Registry tests - Verify fail-closed pack loading.
 """
+
 import json
 
 import pytest
 
 from core.config import config
 from core.models.forensic import PackManifest
-from core.pack_registry import PackRegistry, PackRegistryError, pack_registry
+from core.pack_registry import PackRegistry, pack_registry
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +39,7 @@ def temp_packs_dir(tmp_path):
         "capabilities": ["test_capability"],
         "container_image": "test-image",
         "pinned_image_digest": "sha256:7b5cf89e02315757cf18fa8fdbb7f83737ec38dbf58cfb5e7ddcf2800d98ca8a",
-        "enabled": True
+        "enabled": True,
     }
 
     with open(test_pack_dir / "manifest.json", "w") as f:
@@ -124,7 +125,7 @@ class TestPackRegistry:
             "capabilities": ["test"],
             "container_image": "test",
             "pinned_image_digest": "sha256:123",
-            "enabled": False  # Disabled
+            "enabled": False,  # Disabled
         }
 
         with open(disabled_pack_dir / "manifest.json", "w") as f:

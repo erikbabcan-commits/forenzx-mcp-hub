@@ -4,6 +4,7 @@ Invariant: job metadata survives a process restart (durable SQLite), and a job
 that was RUNNING when the process died is honestly marked FAILED with
 ``INTERRUPTED_BY_RESTART`` — never left eternally RUNNING (audit-able).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -53,8 +54,11 @@ class TestRestartRecovery:
     def test_completed_jobs_are_not_marked_interrupted(self, isolated_db):
         manager = AsyncJobManager()
         job_id, _, _ = manager.create_job_ex(
-            case_id="CASE-R2", evidence_id="EVD-R2", pack_id="p",
-            owner_id="analyst-2", organization_id="org-2",
+            case_id="CASE-R2",
+            evidence_id="EVD-R2",
+            pack_id="p",
+            owner_id="analyst-2",
+            organization_id="org-2",
         )
         manager.update_progress(job_id, AnalysisState.COMPLETED, 100, "COMPLETED")
         restarted = AsyncJobManager()
@@ -66,13 +70,14 @@ class TestRestartRecovery:
 
         manager = AsyncJobManager()
         manager.create_job_ex(
-            case_id="CASE-R3", evidence_id="EVD-R3", pack_id="p",
-            owner_id="analyst-3", organization_id="org-3",
+            case_id="CASE-R3",
+            evidence_id="EVD-R3",
+            pack_id="p",
+            owner_id="analyst-3",
+            organization_id="org-3",
         )
         AsyncJobManager()  # restart path
-        rows = database.fetchall(
-            "SELECT job_id FROM jobs WHERE current_stage='INTERRUPTED_BY_RESTART'"
-        )
+        rows = database.fetchall("SELECT job_id FROM jobs WHERE current_stage='INTERRUPTED_BY_RESTART'")
         row = database.fetchone("SELECT state, error_message FROM jobs WHERE case_id='CASE-R3'")
         assert row["state"] == "FAILED"
         assert row["error_message"]

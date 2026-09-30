@@ -5,6 +5,7 @@ Schema changes go through the versioned migration mechanism in
 single storage interface (ADR-0002): a future PostgreSQL backend implements
 the same surface.
 """
+
 from __future__ import annotations
 
 import json

@@ -3,6 +3,7 @@
 The helper must reject placeholders AND obviously low-entropy values where a
 simple ``len(secret) >= 32`` check would pass.
 """
+
 from __future__ import annotations
 
 import pytest

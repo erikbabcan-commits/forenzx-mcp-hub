@@ -2,16 +2,17 @@
 Regression and Truthful Green Gate Verification Tests for ForenZX v4 Core.
 Strictly verifies all fixed bug invariants from Section A, B, and C.
 """
+
 from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+import jwt
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-import jwt
 from pydantic import BaseModel, ValidationError
 
 from core.config import AppConfig, ForenzxConfig, config
@@ -28,6 +29,7 @@ from workers.pool import WorkerPool
 # ==============================================================================
 # 1. THREAT INTEL IMPORT INVARIANTS
 # ==============================================================================
+
 
 class TestThreatIntelInvariants:
     """Verifies threat_intel imports, BaseModel subclassing, and clean top-level definitions."""
@@ -53,6 +55,7 @@ class TestThreatIntelInvariants:
 # ==============================================================================
 # 2. PACK MANIFEST ID CONTRACT (mobile_compromise & validation)
 # ==============================================================================
+
 
 class TestPackManifestContract:
     """Verifies PackManifest id regex allows underscores and rejects invalid characters."""
@@ -89,14 +92,17 @@ class TestPackManifestContract:
         )
         assert manifest.id == "mobile-compromise-v2"
 
-    @pytest.mark.parametrize("invalid_id", [
-        "mobile compromise",   # spaces
-        "mobile/compromise",   # slashes
-        "mobile@compromise",   # special symbols
-        "Mobile_Compromise",   # uppercase
-        "",                    # empty
-        "mobile.compromise",   # dots
-    ])
+    @pytest.mark.parametrize(
+        "invalid_id",
+        [
+            "mobile compromise",  # spaces
+            "mobile/compromise",  # slashes
+            "mobile@compromise",  # special symbols
+            "Mobile_Compromise",  # uppercase
+            "",  # empty
+            "mobile.compromise",  # dots
+        ],
+    )
     def test_pack_manifest_invalid_ids_fail(self, invalid_id: str):
         with pytest.raises(ValidationError):
             PackManifest(
@@ -117,6 +123,7 @@ class TestPackManifestContract:
 # ==============================================================================
 # 3. CONFIG ENVIRONMENT & SECRET VALIDATION
 # ==============================================================================
+
 
 class TestConfigValidation:
     """Verifies config behavior in development, test, and production fail-closed states."""
@@ -166,6 +173,7 @@ class TestConfigValidation:
 # ==============================================================================
 # 4. JWT AUTHENTICATION
 # ==============================================================================
+
 
 class TestJWTAuthentication:
     """Verifies real JWT verification, signature validation, expiration, and claims."""
@@ -280,15 +288,19 @@ class TestJWTAuthentication:
 # 5. CORS HARDENING
 # ==============================================================================
 
+
 class TestCORSRegression:
     """Verifies CORS allow_origin_regex in dev/test and strict isolation in production."""
 
-    @pytest.mark.parametrize("origin", [
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1",
-    ])
+    @pytest.mark.parametrize(
+        "origin",
+        [
+            "http://localhost:3000",
+            "http://localhost:8080",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1",
+        ],
+    )
     def test_cors_localhost_regex_allowed_in_dev(self, origin: str):
         client = TestClient(app)
         response = client.post(
@@ -345,6 +357,7 @@ class TestCORSRegression:
 # 6. DOCKER LAZY CLIENT & FAIL-CLOSED ISOLATION
 # ==============================================================================
 
+
 class TestDockerLazyClientAndIsolation:
     """Verifies that WorkerPool is lazily loaded and execution fails closed if Docker is down."""
 
@@ -382,10 +395,14 @@ class TestDockerLazyClientAndIsolation:
         )
 
         # Mock Vault and ThreatIntel to succeed so execution reaches Docker client invocation
-        with patch("core.vault.EvidenceVault.resolve_path", return_value=tmp_path / "evidence"), \
-             patch("core.threat_intel.ThreatIntelVault.get_pinned_stix_bundle", return_value=(tmp_path / "iocs", "sha", "1.0")), \
-             patch("core.vault.EvidenceVault.calculate_integrity", return_value=("mockhash", 1024, {})):
-
+        with (
+            patch("core.vault.EvidenceVault.resolve_path", return_value=tmp_path / "evidence"),
+            patch(
+                "core.threat_intel.ThreatIntelVault.get_pinned_stix_bundle",
+                return_value=(tmp_path / "iocs", "sha", "1.0"),
+            ),
+            patch("core.vault.EvidenceVault.calculate_integrity", return_value=("mockhash", 1024, {})),
+        ):
             result = await pool.execute(
                 job_id="test-job-docker-down",
                 manifest=manifest,
@@ -404,6 +421,7 @@ class TestDockerLazyClientAndIsolation:
 # ==============================================================================
 # 7. JOB CANCELLATION & TASK CLEANUP INVARIANTS
 # ==============================================================================
+
 
 class TestJobCancellationAndTaskCleanup:
     """Verifies async job cancellation and task reference cleanup without memory leaks."""

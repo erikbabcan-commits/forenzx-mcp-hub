@@ -1,4 +1,5 @@
 """ForenZX v5 configuration with safe defaults and fail-closed production checks."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -81,7 +82,14 @@ class AppConfig(BaseSettings):
             for key in (*self.admin_api_keys, *self.api_keys):
                 lowered = key.lower()
                 forbidden_values = {
-                    "dev-admin-key", "dev-analyst-key", "changeme", "admin", "password", "secret", "test", "insecure",
+                    "dev-admin-key",
+                    "dev-analyst-key",
+                    "changeme",
+                    "admin",
+                    "password",
+                    "secret",
+                    "test",
+                    "insecure",
                 }
                 weak = (
                     not key
@@ -108,8 +116,17 @@ class AppConfig(BaseSettings):
 
     # Obviously weak placeholder substrings; production rejects all of them.
     _FORBIDDEN_SECRET_SUBSTRINGS = (
-        "change_me", "changeme", "insecure", "dev-secret", "dev-jwt", "dev-hmac",
-        "placeholder", "example", "password", "default", "forenzx.local",
+        "change_me",
+        "changeme",
+        "insecure",
+        "dev-secret",
+        "dev-jwt",
+        "dev-hmac",
+        "placeholder",
+        "example",
+        "password",
+        "default",
+        "forenzx.local",
     )
 
     @staticmethod

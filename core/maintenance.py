@@ -1,4 +1,5 @@
 """Allowlisted local maintenance helpers. No browser-controlled shell execution."""
+
 from __future__ import annotations
 
 import hashlib
@@ -89,7 +90,7 @@ def read_backup_manifest(backup_path: Path) -> dict:
     if not Path(backup_path).exists():
         raise FileNotFoundError(f"Backup file not found: {backup_path}")
     actual = hashlib.sha256(Path(backup_path).read_bytes()).hexdigest()
-    manifest["sha256_matches"] = (actual == manifest.get("sha256"))
+    manifest["sha256_matches"] = actual == manifest.get("sha256")
     return manifest
 
 
@@ -134,10 +135,17 @@ def prune_events(days: int | None = None) -> int:
 
 
 def export_registry() -> dict:
-    rows = db.fetchall("SELECT id,name,server_type,url,transport,enabled,auth_type,custom_headers_json,tags_json,notes,maintenance_url,created_at,updated_at,last_status FROM mcp_servers ORDER BY name")
+    rows = db.fetchall(
+        "SELECT id,name,server_type,url,transport,enabled,auth_type,custom_headers_json,tags_json,notes,maintenance_url,created_at,updated_at,last_status FROM mcp_servers ORDER BY name"
+    )
     for row in rows:
         row["custom_headers"] = json.loads(row.pop("custom_headers_json") or "{}")
         row["tags"] = json.loads(row.pop("tags_json") or "[]")
         row["enabled"] = bool(row["enabled"])
         row["has_secret"] = row["auth_type"] != "none"
-    return {"version": 1, "exported_at": datetime.now(timezone.utc).isoformat(), "servers": rows, "secrets_included": False}
+    return {
+        "version": 1,
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "servers": rows,
+        "secrets_included": False,
+    }

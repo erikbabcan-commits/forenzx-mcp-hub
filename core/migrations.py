@@ -9,6 +9,7 @@ Design rules (see docs/architecture/adr/0002-sqlite-default.md):
   (baseline schema) — no silent re-creation, no data loss.
 - Migration versions must be contiguous and append-only once shipped.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -111,9 +112,7 @@ class MigrationError(RuntimeError):
 
 
 def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
-    row = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
-    ).fetchone()
+    row = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone()
     return row is not None
 
 
@@ -127,8 +126,7 @@ def current_version(conn: sqlite3.Connection) -> int:
 
 def _stamp(conn: sqlite3.Connection, version: int, name: str) -> None:
     conn.execute(
-        "INSERT INTO schema_migrations(version, name, applied_at) VALUES(?,?,"
-        "STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))",
+        "INSERT INTO schema_migrations(version, name, applied_at) VALUES(?,?," "STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))",
         (version, name),
     )
 
@@ -168,9 +166,7 @@ def migrate(conn: sqlite3.Connection) -> int:
         if step_version <= version:
             continue
         if step_version != version + 1:
-            raise MigrationError(
-                f"Migration gap: expected version {version + 1}, found {step_version} ({name})"
-            )
+            raise MigrationError(f"Migration gap: expected version {version + 1}, found {step_version} ({name})")
         try:
             conn.execute("BEGIN")
             for stmt in sql.split(";"):
@@ -191,9 +187,7 @@ def migrate(conn: sqlite3.Connection) -> int:
 
 
 def versions_applied(conn: sqlite3.Connection) -> Sequence[sqlite3.Row]:
-    return conn.execute(
-        "SELECT version, name, applied_at FROM schema_migrations ORDER BY version"
-    ).fetchall()
+    return conn.execute("SELECT version, name, applied_at FROM schema_migrations ORDER BY version").fetchall()
 
 
 def integrity_ok(conn: sqlite3.Connection, full: bool = False) -> Tuple[bool, str]:

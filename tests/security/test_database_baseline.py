@@ -7,6 +7,7 @@ These tests protect the repository-baseline invariants:
 - production configuration rejects development credentials, placeholder secrets,
   memory-only persistence, and invalid forensic pack digests (fail-closed).
 """
+
 from __future__ import annotations
 
 import json
@@ -34,11 +35,15 @@ class TestCleanBootstrap:
         database = Database(path=tmp_path / "fresh.db")
         assert database.schema_version() == LATEST_VERSION
         with database.connect() as conn:
-            tables = {
-                r["name"]
-                for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-            }
-        for expected in ("mcp_servers", "pack_overrides", "registry_events", "jobs", "job_results", "schema_migrations"):
+            tables = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        for expected in (
+            "mcp_servers",
+            "pack_overrides",
+            "registry_events",
+            "jobs",
+            "job_results",
+            "schema_migrations",
+        ):
             assert expected in tables
 
     def test_connect_enables_sqlite_hardening_pragmas(self, tmp_path):
@@ -135,9 +140,22 @@ class TestBackupRestoreIntegrity:
                 "INSERT INTO jobs(job_id,case_id,evidence_id,pack_id,state,progress_percent,current_stage,"
                 "started_at,updated_at,error_message,owner_id,organization_id,spec_json,idempotency_key) "
                 "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (job_id, "CASE-1", "EVD-1", "mobile_compromise", "COMPLETED", 100, "COMPLETED",
-                 "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00", None,
-                 "analyst", "org", json.dumps({"job_id": job_id}), None),
+                (
+                    job_id,
+                    "CASE-1",
+                    "EVD-1",
+                    "mobile_compromise",
+                    "COMPLETED",
+                    100,
+                    "COMPLETED",
+                    "2026-01-01T00:00:00+00:00",
+                    "2026-01-01T00:00:00+00:00",
+                    None,
+                    "analyst",
+                    "org",
+                    json.dumps({"job_id": job_id}),
+                    None,
+                ),
             )
 
     def test_backup_restore_roundtrip_preserves_data_and_integrity(self, tmp_path, monkeypatch):

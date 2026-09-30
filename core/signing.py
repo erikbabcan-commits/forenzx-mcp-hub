@@ -1,4 +1,5 @@
 """Persistent Ed25519 signing key for independently verifiable execution records."""
+
 from __future__ import annotations
 
 import base64
@@ -7,7 +8,7 @@ import os
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from core.config import config
 

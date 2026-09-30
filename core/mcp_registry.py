@@ -1,12 +1,12 @@
 """Remote MCP registry, encrypted credentials and safe health/tool discovery."""
+
 from __future__ import annotations
 
 import base64
 import hashlib
 import json
 import time
-from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 from uuid import uuid4
 
 import httpx
@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 from core.config import config
 from core.db import db, utcnow
-
 
 ServerType = Literal["forenzx", "generic", "filesystem", "github", "database", "browser", "custom"]
 TransportType = Literal["streamable_http", "legacy_jsonrpc"]
@@ -90,14 +89,24 @@ class MCPRegistry:
     @staticmethod
     def _public(row: dict[str, Any]) -> dict[str, Any]:
         return {
-            "id": row["id"], "name": row["name"], "server_type": row["server_type"], "url": row["url"],
-            "transport": row["transport"], "enabled": bool(row["enabled"]), "auth_type": row["auth_type"],
+            "id": row["id"],
+            "name": row["name"],
+            "server_type": row["server_type"],
+            "url": row["url"],
+            "transport": row["transport"],
+            "enabled": bool(row["enabled"]),
+            "auth_type": row["auth_type"],
             "has_auth_secret": bool(row.get("auth_secret_encrypted")),
             "custom_headers": json.loads(row.get("custom_headers_json") or "{}"),
-            "tags": json.loads(row.get("tags_json") or "[]"), "notes": row.get("notes") or "",
-            "maintenance_url": row.get("maintenance_url"), "created_at": row["created_at"], "updated_at": row["updated_at"],
-            "last_checked_at": row.get("last_checked_at"), "last_status": row.get("last_status") or "UNKNOWN",
-            "last_latency_ms": row.get("last_latency_ms"), "last_error": row.get("last_error"),
+            "tags": json.loads(row.get("tags_json") or "[]"),
+            "notes": row.get("notes") or "",
+            "maintenance_url": row.get("maintenance_url"),
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "last_checked_at": row.get("last_checked_at"),
+            "last_status": row.get("last_status") or "UNKNOWN",
+            "last_latency_ms": row.get("last_latency_ms"),
+            "last_error": row.get("last_error"),
             "last_tools": json.loads(row.get("last_tools_json") or "[]"),
             "trust_state": row.get("trust_state") or "UNVERIFIED",
             "tools_hash": row.get("tools_hash"),
@@ -119,9 +128,23 @@ class MCPRegistry:
             """INSERT INTO mcp_servers(id,name,server_type,url,transport,enabled,auth_type,auth_secret_encrypted,
             custom_headers_json,tags_json,notes,maintenance_url,created_at,updated_at,trust_state)
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (server_id, payload.name, payload.server_type, str(payload.url), payload.transport, int(payload.enabled),
-             payload.auth_type, self._encrypt(payload.auth_secret), json.dumps(payload.custom_headers), json.dumps(payload.tags),
-             payload.notes, str(payload.maintenance_url) if payload.maintenance_url else None, now, now, "UNVERIFIED"),
+            (
+                server_id,
+                payload.name,
+                payload.server_type,
+                str(payload.url),
+                payload.transport,
+                int(payload.enabled),
+                payload.auth_type,
+                self._encrypt(payload.auth_secret),
+                json.dumps(payload.custom_headers),
+                json.dumps(payload.tags),
+                payload.notes,
+                str(payload.maintenance_url) if payload.maintenance_url else None,
+                now,
+                now,
+                "UNVERIFIED",
+            ),
         )
         db.event(actor, "MCP_SERVER_CREATE", server_id, True, {"name": payload.name, "type": payload.server_type})
         return self.get(server_id) or {}
@@ -132,8 +155,13 @@ class MCPRegistry:
             return None
         data = payload.model_dump(exclude_unset=True)
         mapping = {
-            "name": "name", "server_type": "server_type", "url": "url", "transport": "transport",
-            "enabled": "enabled", "auth_type": "auth_type", "notes": "notes"
+            "name": "name",
+            "server_type": "server_type",
+            "url": "url",
+            "transport": "transport",
+            "enabled": "enabled",
+            "auth_type": "auth_type",
+            "notes": "notes",
         }
         sets: list[str] = []
         values: list[Any] = []
@@ -147,21 +175,30 @@ class MCPRegistry:
                 sets.append(f"{column}=?")
                 values.append(val)
         if "custom_headers" in data and data["custom_headers"] is not None:
-            sets.append("custom_headers_json=?"); values.append(json.dumps(data["custom_headers"]))
+            sets.append("custom_headers_json=?")
+            values.append(json.dumps(data["custom_headers"]))
         if "tags" in data and data["tags"] is not None:
-            sets.append("tags_json=?"); values.append(json.dumps(data["tags"]))
+            sets.append("tags_json=?")
+            values.append(json.dumps(data["tags"]))
         if data.get("clear_auth_secret"):
-            sets.append("auth_secret_encrypted=?"); values.append(None)
+            sets.append("auth_secret_encrypted=?")
+            values.append(None)
         elif "auth_secret" in data and data["auth_secret"] is not None:
-            sets.append("auth_secret_encrypted=?"); values.append(self._encrypt(data["auth_secret"]))
+            sets.append("auth_secret_encrypted=?")
+            values.append(self._encrypt(data["auth_secret"]))
         if data.get("clear_maintenance_url"):
-            sets.append("maintenance_url=?"); values.append(None)
+            sets.append("maintenance_url=?")
+            values.append(None)
         elif "maintenance_url" in data and data["maintenance_url"] is not None:
-            sets.append("maintenance_url=?"); values.append(str(data["maintenance_url"]))
-        sets.append("updated_at=?"); values.append(utcnow())
+            sets.append("maintenance_url=?")
+            values.append(str(data["maintenance_url"]))
+        sets.append("updated_at=?")
+        values.append(utcnow())
         values.append(server_id)
         db.execute(f"UPDATE mcp_servers SET {', '.join(sets)} WHERE id=?", tuple(values))
-        db.event(actor, "MCP_SERVER_UPDATE", server_id, True, {"fields": sorted(k for k in data if k not in {"auth_secret"})})
+        db.event(
+            actor, "MCP_SERVER_UPDATE", server_id, True, {"fields": sorted(k for k in data if k not in {"auth_secret"})}
+        )
         return self.get(server_id)
 
     def delete(self, server_id: str, actor: str) -> bool:
@@ -178,7 +215,9 @@ class MCPRegistry:
         db.event(actor, "MCP_SERVER_TOGGLE", server_id, True, {"enabled": enabled})
         return self.get(server_id)
 
-    def set_trust_state(self, server_id: str, state: str, actor: str, trace_id: str | None = None) -> dict[str, Any] | None:
+    def set_trust_state(
+        self, server_id: str, state: str, actor: str, trace_id: str | None = None
+    ) -> dict[str, Any] | None:
         """Explicitly set the trust state of a remote MCP server (ADR-0006).
 
         Health probes NEVER change trust state — only an authenticated admin
@@ -191,8 +230,7 @@ class MCPRegistry:
             return None
         previous = row.get("trust_state") or "UNVERIFIED"
         db.execute("UPDATE mcp_servers SET trust_state=?, updated_at=? WHERE id=?", (state, utcnow(), server_id))
-        db.event(actor, "MCP_SERVER_TRUST_CHANGE", server_id, True,
-                 {"from": previous, "to": state}, trace_id=trace_id)
+        db.event(actor, "MCP_SERVER_TRUST_CHANGE", server_id, True, {"from": previous, "to": state}, trace_id=trace_id)
         return self.get(server_id)
 
     def _headers(self, row: dict[str, Any]) -> dict[str, str]:
@@ -207,7 +245,9 @@ class MCPRegistry:
             headers["MCP-Protocol-Version"] = "2026-07-28"
         return headers
 
-    async def _rpc(self, row: dict[str, Any], method: str, params: dict[str, Any] | None = None) -> tuple[dict[str, Any], int]:
+    async def _rpc(
+        self, row: dict[str, Any], method: str, params: dict[str, Any] | None = None
+    ) -> tuple[dict[str, Any], int]:
         body = {"jsonrpc": "2.0", "id": f"hub-{int(time.time()*1000)}", "method": method}
         if params is not None:
             body["params"] = params
@@ -248,6 +288,7 @@ class MCPRegistry:
     def _compute_tools_hash(tools: list[str]) -> str:
         """Stable hash of the advertised tool surface — drift detection input (Phase 2)."""
         import hashlib
+
         canonical = json.dumps(sorted(tools), ensure_ascii=False)
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -257,8 +298,15 @@ class MCPRegistry:
         db.execute(
             "UPDATE mcp_servers SET last_checked_at=?, last_status=?, last_latency_ms=?, last_error=?, "
             "last_tools_json=?, tools_hash=? WHERE id=?",
-            (utcnow(), result["status"], result["latency_ms"], result["error"],
-             json.dumps(result["tools"]), self._compute_tools_hash(result["tools"]), server_id),
+            (
+                utcnow(),
+                result["status"],
+                result["latency_ms"],
+                result["error"],
+                json.dumps(result["tools"]),
+                self._compute_tools_hash(result["tools"]),
+                server_id,
+            ),
         )
 
     async def tools(self, server_id: str) -> list[dict[str, Any]]:

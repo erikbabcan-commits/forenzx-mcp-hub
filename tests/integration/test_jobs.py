@@ -1,6 +1,7 @@
 """
 Job tests - Verify job ownership and IDOR protection.
 """
+
 from uuid import UUID
 
 import pytest
@@ -33,7 +34,7 @@ class TestJobOwnership:
             evidence_id="EVIDENCE-001",
             pack_id="mobile_compromise",
             owner_id="user_1",
-            organization_id="org_1"
+            organization_id="org_1",
         )
 
         # Should be a valid UUID
@@ -52,7 +53,7 @@ class TestJobOwnership:
                 evidence_id="EVIDENCE-001",
                 pack_id="mobile_compromise",
                 owner_id="user_1",
-                organization_id="org_1"
+                organization_id="org_1",
             )
             assert job_id not in job_ids
             job_ids.add(job_id)
@@ -64,7 +65,7 @@ class TestJobOwnership:
             evidence_id="EVIDENCE-001",
             pack_id="mobile_compromise",
             owner_id="user_1",
-            organization_id="org_1"
+            organization_id="org_1",
         )
 
         status = fresh_job_manager.get_status(job_id)
@@ -87,7 +88,7 @@ class TestJobOwnership:
             evidence_id="EVIDENCE-001",
             pack_id="mobile_compromise",
             owner_id="user_1",
-            organization_id="org_1"
+            organization_id="org_1",
         )
 
         # Check if ACL provider has the job
@@ -107,7 +108,7 @@ class TestJobStatus:
             evidence_id="EVIDENCE-001",
             pack_id="mobile_compromise",
             owner_id="user_1",
-            organization_id="org_1"
+            organization_id="org_1",
         )
 
         status = fresh_job_manager.get_status(job_id)
@@ -126,12 +127,10 @@ class TestJobStatus:
             evidence_id="EVIDENCE-001",
             pack_id="mobile_compromise",
             owner_id="user_1",
-            organization_id="org_1"
+            organization_id="org_1",
         )
 
-        fresh_job_manager.update_progress(
-            job_id, AnalysisState.RUNNING, 50, "Processing"
-        )
+        fresh_job_manager.update_progress(job_id, AnalysisState.RUNNING, 50, "Processing")
 
         status = fresh_job_manager.get_status(job_id)
         assert status.state == AnalysisState.RUNNING
@@ -145,7 +144,7 @@ class TestJobStatus:
             evidence_id="EVIDENCE-001",
             pack_id="mobile_compromise",
             owner_id="user_1",
-            organization_id="org_1"
+            organization_id="org_1",
         )
 
         fresh_job_manager.fail_job(job_id, "Test failure")
@@ -165,13 +164,11 @@ class TestJobCleanup:
             evidence_id="EVIDENCE-001",
             pack_id="mobile_compromise",
             owner_id="user_1",
-            organization_id="org_1"
+            organization_id="org_1",
         )
 
         # Mark as running
-        fresh_job_manager.update_progress(
-            job_id, AnalysisState.RUNNING, 50, "Processing"
-        )
+        fresh_job_manager.update_progress(job_id, AnalysisState.RUNNING, 50, "Processing")
 
         # Cancel
         fresh_job_manager.cancel_job(job_id)

@@ -1,6 +1,7 @@
 """
 Execution Record tests - Verify all required fields are present and signed.
 """
+
 import hashlib
 import hmac
 import json
@@ -41,7 +42,7 @@ class TestExecutionRecord:
             tool_command=["test", "command"],
             exit_code=0,
             started_at="2024-01-01T00:00:00Z",
-            completed_at="2024-01-01T01:00:00Z"
+            completed_at="2024-01-01T01:00:00Z",
         )
 
         # Before signing
@@ -71,7 +72,7 @@ class TestExecutionRecord:
             tool_command=["test", "command"],
             exit_code=0,
             started_at="2024-01-01T00:00:00Z",
-            completed_at="2024-01-01T01:00:00Z"
+            completed_at="2024-01-01T01:00:00Z",
         )
 
         rec2 = ExecutionRecord(
@@ -86,7 +87,7 @@ class TestExecutionRecord:
             tool_command=["test", "command"],
             exit_code=0,
             started_at="2024-01-01T00:00:00Z",
-            completed_at="2024-01-01T01:00:00Z"
+            completed_at="2024-01-01T01:00:00Z",
         )
 
         rec1.sign_record("test-key")
@@ -109,7 +110,7 @@ class TestExecutionRecord:
             tool_command=["test", "command"],
             exit_code=0,
             started_at="2024-01-01T00:00:00Z",
-            completed_at="2024-01-01T01:00:00Z"
+            completed_at="2024-01-01T01:00:00Z",
         )
 
         rec.sign_record(key)
@@ -132,11 +133,7 @@ class TestExecutionRecord:
         canonical_json = json.dumps(data, sort_keys=True, separators=(",", ":"))
         canonical_hash = hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
 
-        expected_hmac = hmac.new(
-            key.encode("utf-8"),
-            canonical_hash.encode("utf-8"),
-            hashlib.sha256
-        ).hexdigest()
+        expected_hmac = hmac.new(key.encode("utf-8"), canonical_hash.encode("utf-8"), hashlib.sha256).hexdigest()
 
         assert rec.server_hmac_signature == expected_hmac
 
@@ -158,7 +155,7 @@ class TestAnalysisResult:
             tool_command=["test"],
             exit_code=0,
             started_at="2024-01-01T00:00:00Z",
-            completed_at="2024-01-01T01:00:00Z"
+            completed_at="2024-01-01T01:00:00Z",
         )
         rec.sign_record("test-key")
 
@@ -179,7 +176,7 @@ class TestAnalysisResult:
             warnings=[],
             limitations=["Absence of known IOC matches does not prove absence of compromise."],
             chain_of_custody=[],
-            execution_record=rec
+            execution_record=rec,
         )
 
         # Verify all required fields
@@ -213,7 +210,7 @@ class TestAnalysisResult:
             tool_command=["test"],
             exit_code=-1,
             started_at="2024-01-01T00:00:00Z",
-            completed_at="2024-01-01T00:01:00Z"
+            completed_at="2024-01-01T00:01:00Z",
         )
 
         # This should raise due to invariant violation if we try ERROR classification
@@ -236,7 +233,7 @@ class TestAnalysisResult:
                 warnings=[],
                 limitations=[],
                 chain_of_custody=[],
-                execution_record=rec
+                execution_record=rec,
             )
 
         assert "INVARIANT VIOLATION" in str(exc_info.value)
@@ -255,7 +252,7 @@ class TestAnalysisResult:
             tool_command=["test"],
             exit_code=0,
             started_at="2024-01-01T00:00:00Z",
-            completed_at="2024-01-01T01:00:00Z"
+            completed_at="2024-01-01T01:00:00Z",
         )
         rec.sign_record("test-key")
 
@@ -276,7 +273,7 @@ class TestAnalysisResult:
             warnings=[],
             limitations=["Absence of known IOC matches does not prove absence of compromise."],
             chain_of_custody=[],
-            execution_record=rec
+            execution_record=rec,
         )
 
         assert "Absence of known IOC matches does not prove absence of compromise." in result.limitations
@@ -293,7 +290,7 @@ class TestChainOfCustody:
                 actor="test",
                 sha256_before="a" * 64,
                 sha256_after="b" * 64,  # Different!
-                details={}
+                details={},
             )
 
     def test_chain_of_custody_entry_valid(self):
@@ -304,7 +301,7 @@ class TestChainOfCustody:
             actor="vault_engine",
             sha256_before=same_hash,
             sha256_after=same_hash,
-            details={"test": "value"}
+            details={"test": "value"},
         )
 
         assert entry.action == "VAULT_PRE_FLIGHT_VERIFIED"

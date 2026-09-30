@@ -1,6 +1,7 @@
 """
 Access Control Layer: Multi-tenant case ACL with fail-closed semantics.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -93,7 +94,9 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
         if case_info.get("org_id") == user.organization:
             return True
 
-        logger.critical(f"ACCESS DENIED: User {user.user_id} (org: {user.organization}) attempted access to Case {case_id} (owner: {case_info.get('owner_id')}, org: {case_info.get('org_id')})")
+        logger.critical(
+            f"ACCESS DENIED: User {user.user_id} (org: {user.organization}) attempted access to Case {case_id} (owner: {case_info.get('owner_id')}, org: {case_info.get('org_id')})"
+        )
         return False
 
     def can_access_job(self, user: TokenUser, job_id: str, case_id: Optional[str] = None) -> bool:
@@ -121,7 +124,9 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
             if self.can_access_case(user, case_id):
                 return True
 
-        logger.critical(f"ACCESS DENIED: User {user.user_id} attempted access to Job {job_id} (owner: {job_info.get('owner_id')}, org: {job_info.get('org_id')})")
+        logger.critical(
+            f"ACCESS DENIED: User {user.user_id} attempted access to Job {job_id} (owner: {job_info.get('owner_id')}, org: {job_info.get('org_id')})"
+        )
         return False
 
     def get_case_owner(self, case_id: str) -> Optional[str]:
@@ -154,11 +159,7 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
 
     def register_job(self, job_id: str, owner_id: str, org_id: str, case_id: str) -> None:
         """Register a job (for testing/dynamic creation)."""
-        self._job_ownership[job_id] = {
-            "owner_id": owner_id,
-            "org_id": org_id,
-            "case_id": case_id
-        }
+        self._job_ownership[job_id] = {"owner_id": owner_id, "org_id": org_id, "case_id": case_id}
 
 
 # Global access provider instance
@@ -175,7 +176,7 @@ class CaseAccessController:
             logger.critical(f"IDOR VIOLATION: User {user.user_id} attempted access to Case {case_id}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Prístup odmietnutý: Nemáte oprávnenie na spis '{case_id}'."
+                detail=f"Prístup odmietnutý: Nemáte oprávnenie na spis '{case_id}'.",
             )
 
     @staticmethod
@@ -185,5 +186,5 @@ class CaseAccessController:
             logger.critical(f"IDOR VIOLATION: User {user.user_id} attempted access to Job {job_id}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Prístup odmietnutý: Nemáte oprávnenie na úlohu '{job_id}'."
+                detail=f"Prístup odmietnutý: Nemáte oprávnenie na úlohu '{job_id}'.",
             )

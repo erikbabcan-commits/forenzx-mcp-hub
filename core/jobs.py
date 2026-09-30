@@ -1,4 +1,5 @@
 """Persistent async job manager backed by SQLite."""
+
 from __future__ import annotations
 
 import asyncio
@@ -44,7 +45,9 @@ class AsyncJobManager:
         rows = db.fetchall("SELECT * FROM jobs")
         for row in rows:
             try:
-                case_access_provider.register_job(row["job_id"], row["owner_id"], row["organization_id"], row["case_id"])
+                case_access_provider.register_job(
+                    row["job_id"], row["owner_id"], row["organization_id"], row["case_id"]
+                )
             except Exception:
                 pass
         # A process restart cannot truthfully claim an in-process Docker task is still running.
@@ -97,8 +100,20 @@ class AsyncJobManager:
                 """INSERT INTO jobs(job_id,case_id,evidence_id,pack_id,state,progress_percent,current_stage,started_at,updated_at,error_message,owner_id,organization_id,spec_json,idempotency_key)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    job_id, case_id, evidence_id, pack_id, AnalysisState.QUEUED.value, 0, "QUEUED", now, now, None,
-                    owner_id, organization_id, spec.model_dump_json(), idempotency_key,
+                    job_id,
+                    case_id,
+                    evidence_id,
+                    pack_id,
+                    AnalysisState.QUEUED.value,
+                    0,
+                    "QUEUED",
+                    now,
+                    now,
+                    None,
+                    owner_id,
+                    organization_id,
+                    spec.model_dump_json(),
+                    idempotency_key,
                 ),
             )
         except sqlite3.IntegrityError:
@@ -121,15 +136,17 @@ class AsyncJobManager:
         organization_id: str,
         idempotency_key: str | None = None,
     ) -> Tuple[str, JobSpec]:
-        job_id, spec, _ = self.create_job_ex(
-            case_id, evidence_id, pack_id, owner_id, organization_id, idempotency_key
-        )
+        job_id, spec, _ = self.create_job_ex(case_id, evidence_id, pack_id, owner_id, organization_id, idempotency_key)
         return job_id, spec
 
-    def update_progress(self, job_id: str, state: AnalysisState, progress: int, stage: str, error: Optional[str] = None) -> None:
+    def update_progress(
+        self, job_id: str, state: AnalysisState, progress: int, stage: str, error: Optional[str] = None
+    ) -> None:
         now = datetime.now(timezone.utc).isoformat()
-        db.execute("UPDATE jobs SET state=?, progress_percent=?, current_stage=?, error_message=?, updated_at=? WHERE job_id=?",
-                   (state.value, max(0, min(100, progress)), stage, error, now, job_id))
+        db.execute(
+            "UPDATE jobs SET state=?, progress_percent=?, current_stage=?, error_message=?, updated_at=? WHERE job_id=?",
+            (state.value, max(0, min(100, progress)), stage, error, now, job_id),
+        )
 
     def store_result(self, job_id: str, result: AnalysisResult) -> None:
         db.execute(
@@ -147,14 +164,25 @@ class AsyncJobManager:
         if not row:
             return None
         return JobStatus(
-            job_id=row["job_id"], case_id=row["case_id"], evidence_id=row["evidence_id"], pack_id=row["pack_id"],
-            state=AnalysisState(row["state"]), progress_percent=row["progress_percent"], current_stage=row["current_stage"],
-            started_at=row["started_at"], updated_at=row["updated_at"], error_message=row["error_message"],
-            owner_id=row["owner_id"], organization_id=row["organization_id"],
+            job_id=row["job_id"],
+            case_id=row["case_id"],
+            evidence_id=row["evidence_id"],
+            pack_id=row["pack_id"],
+            state=AnalysisState(row["state"]),
+            progress_percent=row["progress_percent"],
+            current_stage=row["current_stage"],
+            started_at=row["started_at"],
+            updated_at=row["updated_at"],
+            error_message=row["error_message"],
+            owner_id=row["owner_id"],
+            organization_id=row["organization_id"],
         )
 
     def list_recent(self, limit: int = 50) -> list[dict]:
-        return db.fetchall("SELECT job_id,case_id,evidence_id,pack_id,state,progress_percent,current_stage,started_at,updated_at,error_message,owner_id,organization_id FROM jobs ORDER BY updated_at DESC LIMIT ?", (max(1, min(500, limit)),))
+        return db.fetchall(
+            "SELECT job_id,case_id,evidence_id,pack_id,state,progress_percent,current_stage,started_at,updated_at,error_message,owner_id,organization_id FROM jobs ORDER BY updated_at DESC LIMIT ?",
+            (max(1, min(500, limit)),),
+        )
 
     def get_result(self, job_id: str) -> Optional[AnalysisResult]:
         row = db.fetchone("SELECT result_json FROM job_results WHERE job_id=?", (job_id,))

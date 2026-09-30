@@ -1,0 +1,168 @@
+=== ruff check ===
+tests/integration/test_restart_recovery.py:80:9: F841 Local variable `rows` is assigned to but never used
+Found 1 error.
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
+exit=1
+
+=== ruff format --check ===
+47 files already formatted
+exit=0
+
+=== mypy core ===
+core/signing.py:28: error: Incompatible return value type (got "DHPrivateKey | Ed25519PrivateKey | Ed448PrivateKey | RSAPrivateKey | DSAPrivateKey | EllipticCurvePrivateKey | X25519PrivateKey | X448PrivateKey", expected "Ed25519PrivateKey")  [return-value]
+core/server.py:161: error: Argument "input_type" to "EvidenceInputSpec" has incompatible type "str"; expected "Literal['ios_backup', 'ios_sysdiagnose', 'ios_mobileconfig', 'ios_app_container', 'android_backup', 'android_bugreport', 'android_app_export', 'android_filesystem_export', 'mobile_generic_archive', 'disk_raw', 'evtx_logs', 'pcap', 'file_generic']"  [arg-type]
+core/server.py:210: error: Incompatible types in assignment (expression has type "JobSpec | None", variable has type "EvidenceInputSpec")  [assignment]
+core/mcp_registry.py:253: error: Incompatible types in assignment (expression has type "dict[str, Any]", target has type "str")  [assignment]
+core/mcp_registry.py:269: error: Need type annotation for "result"  [var-annotated]
+core/mcp_registry.py:277: error: Dict entry 1 has incompatible type "str": "int"; expected "str": "list[Any] | str | None"  [dict-item]
+core/mcp_registry.py:288: error: Function "core.mcp_registry.MCPRegistry.list" is not valid as a type  [valid-type]
+core/mcp_registry.py:288: note: Perhaps you need "Callable[...]" or a callback protocol?
+core/mcp_registry.py:312: error: Function "core.mcp_registry.MCPRegistry.list" is not valid as a type  [valid-type]
+core/mcp_registry.py:312: note: Perhaps you need "Callable[...]" or a callback protocol?
+Found 8 errors in 3 files (checked 16 source files)
+exit=1
+
+=== pytest ===
+tests/security/test_database_baseline.py:295: in test_production_rejects_placeholder_api_keys
+    AppConfig(
+../../../.cache/pypoetry/virtualenvs/forenzx-mcp-core-ZfvRwPtt-py3.11/lib/python3.11/site-packages/pydantic_settings/main.py:262: in __init__
+    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+core/config.py:73: in validate_config
+    self._require_strong_secret(self.jwt_secret_key, "jwt_secret_key")
+core/config.py:155: in _require_strong_secret
+    if cls.is_obviously_weak_secret(value):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/config.py:149: in is_obviously_weak_secret
+    or any(x in lowered for x in cls._FORBIDDEN_SECRET_SUBSTRINGS)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: 'ModelPrivateAttr' object is not iterable
+________ TestMCPTrustModel.test_successful_probe_does_not_promote_trust ________
+tests/security/test_mcp_trust.py:57: in test_successful_probe_does_not_promote_trust
+    assert result["status"] == "READY"
+           ^^^^^^^^^^^^^^^^
+E   TypeError: 'coroutine' object is not subscriptable
+__________ TestMCPTrustModel.test_failed_probe_leaves_trust_untouched __________
+tests/security/test_mcp_trust.py:73: in test_failed_probe_leaves_trust_untouched
+    assert result["status"] == "DOWN"
+           ^^^^^^^^^^^^^^^^
+E   TypeError: 'coroutine' object is not subscriptable
+___ TestConfigValidation.test_config_production_with_valid_secrets_succeeds ____
+tests/security/test_regression_gates.py:159: in test_config_production_with_valid_secrets_succeeds
+    cfg = AppConfig(
+../../../.cache/pypoetry/virtualenvs/forenzx-mcp-core-ZfvRwPtt-py3.11/lib/python3.11/site-packages/pydantic_settings/main.py:262: in __init__
+    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+core/config.py:73: in validate_config
+    self._require_strong_secret(self.jwt_secret_key, "jwt_secret_key")
+core/config.py:155: in _require_strong_secret
+    if cls.is_obviously_weak_secret(value):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/config.py:149: in is_obviously_weak_secret
+    or any(x in lowered for x in cls._FORBIDDEN_SECRET_SUBSTRINGS)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: 'ModelPrivateAttr' object is not iterable
+_ TestDockerLazyClientAndIsolation.test_app_and_worker_pool_import_without_docker_daemon _
+tests/security/test_regression_gates.py:367: in test_app_and_worker_pool_import_without_docker_daemon
+    with pytest.raises(RuntimeError, match="Docker infrastructure is unavailable"):
+E   Failed: DID NOT RAISE <class 'RuntimeError'>
+_ TestDockerLazyClientAndIsolation.test_docker_unavailable_forensic_execution_fail_closed _
+tests/security/test_regression_gates.py:418: in test_docker_unavailable_forensic_execution_fail_closed
+    assert any("Docker infrastructure unavailable" in w for w in result.warnings)
+E   assert False
+E    +  where False = any(<generator object TestDockerLazyClientAndIsolation.test_docker_unavailable_forensic_execution_fail_closed.<locals>.<genexpr> at 0x7f3d2464b850>)
+------------------------------ Captured log call -------------------------------
+ERROR    workers.pool:pool.py:166 Image digest verification failed: Failed to verify image digest: 404 Client Error for http+docker://localhost/v1.48/images/ghcr.io/forenzx/mvt:v1.0.0/json: Not Found ("No such image: ghcr.io/forenzx/mvt:v1.0.0")
+INFO     core.vault:vault.py:127 Scratch úložisko uvoľnené: /tmp/forenzx_scratch/test-job-docker-down
+_______ TestWeakSecretDetection.test_repeated_character_secret_rejected ________
+tests/unit/test_config_hardening.py:16: in test_repeated_character_secret_rejected
+    assert AppConfig.is_obviously_weak_secret("a" * 64) is True
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/config.py:149: in is_obviously_weak_secret
+    or any(x in lowered for x in cls._FORBIDDEN_SECRET_SUBSTRINGS)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: 'ModelPrivateAttr' object is not iterable
+_____________ TestWeakSecretDetection.test_keyboard_walk_rejected ______________
+tests/unit/test_config_hardening.py:20: in test_keyboard_walk_rejected
+    assert AppConfig.is_obviously_weak_secret("qwertyuiopasdfghjklzxcvbnmqwerty") is True
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/config.py:149: in is_obviously_weak_secret
+    or any(x in lowered for x in cls._FORBIDDEN_SECRET_SUBSTRINGS)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: 'ModelPrivateAttr' object is not iterable
+__________ TestWeakSecretDetection.test_placeholder_patterns_rejected __________
+tests/unit/test_config_hardening.py:23: in test_placeholder_patterns_rejected
+    assert AppConfig.is_obviously_weak_secret("CHANGE_ME_WITH_AT_LEAST_32_RANDOM_CHARACTERS") is True
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/config.py:149: in is_obviously_weak_secret
+    or any(x in lowered for x in cls._FORBIDDEN_SECRET_SUBSTRINGS)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: 'ModelPrivateAttr' object is not iterable
+__________ TestWeakSecretDetection.test_high_entropy_secret_accepted ___________
+tests/unit/test_config_hardening.py:32: in test_high_entropy_secret_accepted
+    assert AppConfig.is_obviously_weak_secret("k7Vq2mZx9LpRtWn4BhGc8JdF3sYe6Aq1") is False
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/config.py:149: in is_obviously_weak_secret
+    or any(x in lowered for x in cls._FORBIDDEN_SECRET_SUBSTRINGS)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: 'ModelPrivateAttr' object is not iterable
+_______ TestWeakSecretDetection.test_production_uses_helper_for_api_keys _______
+tests/unit/test_config_hardening.py:45: in test_production_uses_helper_for_api_keys
+    AppConfig(
+../../../.cache/pypoetry/virtualenvs/forenzx-mcp-core-ZfvRwPtt-py3.11/lib/python3.11/site-packages/pydantic_settings/main.py:262: in __init__
+    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+core/config.py:73: in validate_config
+    self._require_strong_secret(self.jwt_secret_key, "jwt_secret_key")
+core/config.py:155: in _require_strong_secret
+    if cls.is_obviously_weak_secret(value):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/config.py:149: in is_obviously_weak_secret
+    or any(x in lowered for x in cls._FORBIDDEN_SECRET_SUBSTRINGS)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: 'ModelPrivateAttr' object is not iterable
+=============================== warnings summary ===============================
+../../../.cache/pypoetry/virtualenvs/forenzx-mcp-core-ZfvRwPtt-py3.11/lib/python3.11/site-packages/starlette/testclient.py:41
+  /home/runner/.cache/pypoetry/virtualenvs/forenzx-mcp-core-ZfvRwPtt-py3.11/lib/python3.11/site-packages/starlette/testclient.py:41: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    [], typing.ContextManager[anyio.abc.BlockingPortal]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/security/test_database_baseline.py::TestProductionRejection::test_production_accepts_valid_configuration - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/security/test_database_baseline.py::TestProductionRejection::test_production_rejects_development_credentials - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/security/test_database_baseline.py::TestProductionRejection::test_production_rejects_placeholder_secrets - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/security/test_database_baseline.py::TestProductionRejection::test_production_rejects_low_entropy_secrets - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/security/test_database_baseline.py::TestProductionRejection::test_production_rejects_memory_only_persistence - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/security/test_database_baseline.py::TestProductionRejection::test_production_rejects_placeholder_api_keys - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/security/test_mcp_trust.py::TestMCPTrustModel::test_successful_probe_does_not_promote_trust - TypeError: 'coroutine' object is not subscriptable
+FAILED tests/security/test_mcp_trust.py::TestMCPTrustModel::test_failed_probe_leaves_trust_untouched - TypeError: 'coroutine' object is not subscriptable
+FAILED tests/security/test_regression_gates.py::TestConfigValidation::test_config_production_with_valid_secrets_succeeds - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/security/test_regression_gates.py::TestDockerLazyClientAndIsolation::test_app_and_worker_pool_import_without_docker_daemon - Failed: DID NOT RAISE <class 'RuntimeError'>
+FAILED tests/security/test_regression_gates.py::TestDockerLazyClientAndIsolation::test_docker_unavailable_forensic_execution_fail_closed - assert False
+ +  where False = any(<generator object TestDockerLazyClientAndIsolation.test_docker_unavailable_forensic_execution_fail_closed.<locals>.<genexpr> at 0x7f3d2464b850>)
+FAILED tests/unit/test_config_hardening.py::TestWeakSecretDetection::test_repeated_character_secret_rejected - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/unit/test_config_hardening.py::TestWeakSecretDetection::test_keyboard_walk_rejected - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/unit/test_config_hardening.py::TestWeakSecretDetection::test_placeholder_patterns_rejected - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/unit/test_config_hardening.py::TestWeakSecretDetection::test_high_entropy_secret_accepted - TypeError: 'ModelPrivateAttr' object is not iterable
+FAILED tests/unit/test_config_hardening.py::TestWeakSecretDetection::test_production_uses_helper_for_api_keys - TypeError: 'ModelPrivateAttr' object is not iterable
+================== 16 failed, 166 passed, 1 warning in 3.08s ===================
+pytest done
+
+=== security scan ===
+======================================================================
+FORENZX v5 SECURITY SCAN
+======================================================================
+Scanning: /home/runner/work/forenzx-mcp-hub/forenzx-mcp-hub
+
+======================================================================
+HIGH FINDINGS (1)
+======================================================================
+  [HIGH] /home/runner/work/forenzx-mcp-hub/forenzx-mcp-hub/core/vault.py:92 - Wildcard in allow_origins
+    Pattern: "\*"
+    Line: N/A
+
+
+Total findings: 1
+
+✗ Found 1 security findings that need attention!
+
+=== docker compose config ===
+env file /home/runner/work/forenzx-mcp-hub/forenzx-mcp-hub/.env not found: stat /home/runner/work/forenzx-mcp-hub/forenzx-mcp-hub/.env: no such file or directory
+exit=1
