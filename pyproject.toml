@@ -67,3 +67,7 @@ check_untyped_defs = true
 
 [tool.poetry.scripts]
 forenzx = "core.main:main"
+
+[tool.vercel]
+entrypoint = "core.main:app"
+
