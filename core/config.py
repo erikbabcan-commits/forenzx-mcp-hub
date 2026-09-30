@@ -128,6 +128,16 @@ class AppConfig(BaseSettings):
         "default",
         "forenzx.local",
     )
+    # Keyboard walks look high-entropy (many distinct chars) but are trivially
+    # guessable; production rejects them explicitly.
+    _KEYBOARD_SEQUENCES: ClassVar[Tuple[str, ...]] = (
+        "qwertyuiop",
+        "asdfghjkl",
+        "zxcvbnm",
+        "1234567890",
+        "azertyuiop",
+        "qwertz",
+    )
 
     @staticmethod
     def _secret_entropy_too_low(value: str) -> bool:
@@ -147,6 +157,7 @@ class AppConfig(BaseSettings):
             not value
             or len(value) < 32
             or any(x in lowered for x in cls._FORBIDDEN_SECRET_SUBSTRINGS)
+            or any(seq in lowered for seq in cls._KEYBOARD_SEQUENCES)
             or cls._secret_entropy_too_low(value)
         )
 
