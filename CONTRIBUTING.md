@@ -1,22 +1,68 @@
-# Contributing
+# Contributing to ForenZX MCP Hub
 
-## Ground rules (non-negotiable)
-1. Do not weaken fail-closed behavior to make a test or pipeline pass. If a check fails, fix the cause.
-2. AI output must never become forensic evidence — see [AI ≠ EVIDENCE](docs/security/AI_EVIDENCE_BOUNDARY.md) (ADR-0004).
-3. Database changes go through a new entry in `core/migrations.py` `MIGRATIONS` (append-only, contiguous versions). No ad-hoc DDL anywhere.
-4. Do not commit secrets, placeholder production credentials, or forensic data. Pre-commit runs secret detection.
-5. Docker image references for forensic packs require canonical RepoDigests (ADR-0005).
-6. Keep the control plane free of Docker-socket dependencies (ADR-0003).
+## Ground rules
 
-## Workflow
-1. Branch from `main`: `feature/...`, `fix/...`, `hardening/...`.
-2. `make install && make verify` must be green locally (it is the CI gate).
-3. Add tests for behavior changes; never delete tests to make the suite pass.
-4. PRs require: green CI, review, and an honest description of what was NOT verified.
+1. **Never weaken security to make a build pass.** Fail-closed behavior and
+   the AI ≠ evidence invariant are non-negotiable.
+2. **No fake PASS.** If you cannot run a check locally, mark it
+   `NOT_VERIFIED` in your PR description — do not claim it passed.
+3. **Evidence data is immutable.** Never modify forensic evidence, binary
+   samples, or hash-pinned test fixtures. Pre-commit hooks are configured to
+   leave them alone.
+4. Don't work directly on `main`. Use feature branches and PRs.
 
-## Style
-- `ruff` (line length 120) and `mypy core` enforce style/types; `pre-commit install` wires up ruff, whitespace/EOF/YAML checks, large-file and secret detection.
-- Evidence data is never touched by formatting tooling (excluded paths in `.pre-commit-config.yaml`).
+## Setup
 
-## Commit messages
-Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `security:`).
+```bash
+git clone https://github.com/erikbabcan-commits/forenzx-mcp-hub.git
+cd forenzx-mcp-hub
+make install        # poetry install + pre-commit
+cp .env.example .env  # fill in real secrets (never commit .env)
+```
+
+## Daily workflow
+
+```bash
+make verify   # local equivalent of the CI quality gates
+```
+
+`make verify` runs the same checks as CI (lint, format check, type check,
+tests, docker compose config when Docker is available). Run it before every
+push. If Docker is unavailable, `make compose-check` and `make docker-build`
+report NOT_VERIFIED rather than silently passing.
+
+## Commits
+
+Use conventional commits, e.g.
+
+```
+feat(db): add versioned database migrations
+fix(registry): probe no longer promotes server trust
+docs(audit): publish phase 1 verification report
+```
+
+Keep commits logical and reviewable; don't mix refactors with behavior
+changes.
+
+## Code style
+
+- `ruff` for lint and formatting (config in `pyproject.toml`).
+- `mypy core` for type checking; prefer real type fixes over `# type: ignore`.
+- Don't enable dozens of lint rules and then ignore them all.
+
+## Tests
+
+- All existing tests must keep passing; never delete tests to make a change land.
+- New security-relevant behavior needs a test (see `tests/security/`).
+- Test layout: `tests/unit`, `tests/integration`, `tests/security`, `tests/e2e`.
+
+## Database changes
+
+Schema changes go through `core/migrations.py` as a new numbered migration.
+Never add ad-hoc `CREATE`/`ALTER` statements to runtime code outside the
+versioned migration list. Add a migration test alongside the change.
+
+## Reporting issues
+
+Use the GitHub issue templates (`.github/ISSUE_TEMPLATE/`). For security
+issues, see `SECURITY.md` — private advisory only, no public issues.

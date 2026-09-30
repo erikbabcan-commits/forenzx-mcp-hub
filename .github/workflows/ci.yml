@@ -54,3 +54,6 @@ jobs:
 
       - name: Security scan
         run: poetry run python scripts/security_scan.py
+
+      - name: Validate docker compose file
+        run: docker compose config -q

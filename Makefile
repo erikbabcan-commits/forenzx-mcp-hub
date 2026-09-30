@@ -4,25 +4,24 @@
 POETRY ?= poetry
 PY := $(shell $(POETRY) run which python 2>/dev/null || echo python3)
 
-.PHONY: help install lock lint format format-check typecheck test security verify run docker-build docker-up docker-down backup db-check clean
+.PHONY: help install lock lint format format-check typecheck test security verify run docker-build docker-up docker-down compose-check backup db-check clean
 
 help:
 	@echo "install        poetry install (requires poetry.lock; run 'make lock' first)"
 	@echo "lock           poetry lock && poetry check --lock (reproducible dependencies)"
 	@echo "lint           ruff check ."
 	@echo "format         ruff format ."
-	@echo "format-check   ruff format --check ."
-	@echo "typecheck      mypy core"
-	@echo "test           pytest -q"
-	@echo "security       scripts/security_scan.py (must report 0 findings)"
-	@echo "verify         compileall + lint + format-check + typecheck + test + security (CI gate)"
-	@echo "run            uvicorn core.main:app (development)"
-	@echo "docker-build   docker compose build"
-	@echo "docker-up      docker compose up -d"
-	@echo "docker-down    docker compose down"
-	@echo "backup         WAL-consistent SQLite backup into BACKUPS_DIR"
-	@echo "db-check       PRAGMA quick_check + schema version on the live DB"
-	@echo "clean          caches and local scratch"
+	@echo "format-check    ruff format --check ."
+	@echo "typecheck       mypy core"
+	@echo "test            pytest -q"
+	@echo "security        scripts/security_scan.py (must report 0 findings)"
+	@echo "verify          compileall + lint + format-check + typecheck + test + security (CI gate)"
+	@echo "run             uvicorn core.main:app (development)"
+	@echo "docker-build    docker compose build"
+	@echo "compose-check   docker compose config (validate compose file)"
+	@echo "backup          WAL-consistent SQLite backup into BACKUPS_DIR"
+	@echo "db-check        PRAGMA quick_check + schema version on the live DB"
+	@echo "clean           caches and local scratch"
 
 lock:
 	$(POETRY) lock
@@ -70,8 +69,11 @@ docker-up:
 docker-down:
 	docker compose down
 
+compose-check:
+	docker compose config -q && echo "compose config: OK"
+
 backup:
-	$(PY) -c "from core.maintenance import backup_database, verify_backup; p = backup_database(); print('backup:', p); print(verify_backup(p))"
+	$(PY) -c "from core.maintenance import backup_database, verify_backup, read_backup_manifest; p = backup_database(); print('backup:', p); print(read_backup_manifest(p)); print(verify_backup(p))"
 
 db-check:
 	$(PY) -c "from core.db import db; from core.maintenance import database_integrity_check; print('schema_version:', db.schema_version(), '/ expected:', db.expected_schema_version()); print(database_integrity_check())"

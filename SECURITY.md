@@ -1,26 +1,60 @@
-# Security Policy
-
-## Supported versions
-Only the latest `main` / current release branch receives security fixes.
+# SECURITY POLICY — ForenZX MCP Hub
 
 ## Reporting a vulnerability
-Please report privately — do not open a public issue for exploitable findings.
-Contact the maintainers via GitHub security advisory ("Report a vulnerability" in the repo Security tab) or the address in `docs/deployment/PRODUCTION.md` once set (TODO: publish a permanent security contact, tracked in ENTERPRISE_BASELINE.md DOC-2).
 
-Include: affected component, reproduction steps, impact assessment, logs (`core/utils/logger.py` emits structured JSON), and whether forensic evidence could be affected.
+This project is maintained on GitHub. Please report security issues via
+**GitHub private security advisories** on this repository
+(Repo → Security → Report a vulnerability). Do not open public issues for
+security problems.
 
-## Handling
-- Acknowledgement: within 72 hours. Fix window depends on severity (CRITICAL: ASAP; HIGH: days).
-- Security fixes are released with a CHANGELOG entry; credits given on request.
+We do not publish a dedicated e-mail contact; the GitHub advisory channel is
+the single supported intake route.
 
-## Invariants that must survive every change
-1. **Fail-closed**: unverifiable digests, missing threat intel, unknown ACL objects ⇒ refuse, never degrade.
-2. **AI ≠ EVIDENCE**: model output never becomes or edits a forensic finding (docs/security/AI_EVIDENCE_BOUNDARY.md).
-3. **No ad-hoc schema**: DB changes only via versioned migrations in `core/migrations.py`.
-4. **No secrets in the repo**: `.env` is gitignored; production rejects placeholder/dev credentials at startup.
+## Non-negotiable invariants
 
-## Security boundaries in depth
-- [Trust boundaries](docs/security/TRUST_BOUNDARIES.md)
-- [Threat model](docs/security/THREAT_MODEL.md)
-- [Security boundaries (detailed)](docs/security/SECURITY-BOUNDARIES.md)
-- [Baseline audit](docs/audit/ENTERPRISE_BASELINE.md)
+- **Fail closed.** Invalid pack digests, weak/placeholder secrets, memory-only
+  production persistence, and missing dependencies disable or abort the
+  affected component — they are never silently downgraded or auto-fixed.
+- **AI output is not forensic evidence.** LLM layers (Gemini/Mistral) may
+  draft interpretations and summaries; they must never create artifact
+  hashes, deterministic IOC hits, chain-of-custody events, execution
+  signatures, or observed timestamps. See
+  `docs/security/AI_EVIDENCE_BOUNDARY.md`.
+- **HEALTHY is not TRUSTED.** Remote MCP servers default to `UNVERIFIED`
+  trust state. See `docs/architecture/adr/0006-remote-mcp-trust-model.md`.
+
+## Trust boundaries
+
+The system is split into three planes:
+
+- **Control plane** — FastAPI, MCP server, dashboard, registries, ACL,
+  jobs, audit, maintenance.
+- **Evidence plane** — isolated forensic workers, packs, evidence vault,
+  deterministic parsers, hashing, execution signing.
+- **Intelligence plane** — LLM interpretation, correlation, report drafting.
+
+Detailed model: `docs/security/TRUST_BOUNDARIES.md` and
+`docs/security/THREAT_MODEL.md`.
+
+## Supported configuration
+
+Single-node Docker deployment from the `main` branch. Docker socket access
+is not required by the production control plane
+(`docs/architecture/adr/0003-no-docker-socket-control-plane.md`).
+
+## Secrets
+
+- Generate secrets with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`.
+- Production startup rejects placeholders (`CHANGE_ME`, `changeme`,
+  `dev-secret`, …), known defaults, and low-entropy values.
+- Never commit real secrets; `.pre-commit-config.yaml` includes secret
+  detection with an audited baseline (`.secrets.baseline`).
+
+## Hardening status
+
+Phase 1 established the enterprise baseline (versioned DB migrations,
+audited trust model, verified backups). Known open security work — SSRF
+egress protection, DNS rebinding, AEAD credential encryption, RBAC, audit
+hash chaining, and CI supply-chain scanning — is tracked in
+`docs/audit/PHASE2_BACKLOG.md` and is **not yet implemented**. Do not deploy
+to hostile networks until Phase 2 lands.
