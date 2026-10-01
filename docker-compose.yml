@@ -17,6 +17,11 @@ services:
     volumes:
       - forenzx_data:/data
       - ./packs:/app/packs:ro
+      - ./core:/app/core:ro
+      - ./tools:/app/tools:ro
+      - ./reports:/app/reports
+      - ./vault:/app/vault
+      - ./vault:/data/vault
       # Optional local forensic evidence / threat intel mounts:
       # - /srv/forenzx/vault:/var/forensics/vault:ro
       # - /srv/forenzx/threat-intel:/var/forensics/threat_intel:ro
@@ -34,6 +39,12 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    networks:
+      - forenzx_network
 
 volumes:
   forenzx_data:
+
+networks:
+  forenzx_network:
+    name: forenzx_network

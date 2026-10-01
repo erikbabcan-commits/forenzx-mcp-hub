@@ -19,10 +19,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from pydantic import BaseModel
 from core.acl import CaseAccessController, TokenUser, case_access_provider
+from core.auth_oidc import oidc_validator
 from core.config import config
 from core.db import db
 from core.jobs import job_manager
+from core.tools_runner import REPORTS_DIR, tools_runner
 from core.maintenance import backup_database, export_registry, prune_events, system_summary, vacuum_database
 from core.mcp_registry import MCPServerCreate, MCPServerUpdate, mcp_registry
 from core.pack_registry import pack_registry
@@ -70,6 +73,9 @@ app = FastAPI(
 
 if DASHBOARD_DIR.exists():
     app.mount("/static", StaticFiles(directory=DASHBOARD_DIR), name="static")
+
+if REPORTS_DIR.exists():
+    app.mount("/reports", StaticFiles(directory=REPORTS_DIR, html=True), name="reports")
 
 if config.environment == "production":
     app.add_middleware(
@@ -127,6 +133,11 @@ class AuthConfig:
 
     @staticmethod
     def jwt_user(token: str) -> Optional[TokenUser]:
+        if config.oidc_enabled:
+            oidc_user = oidc_validator.verify_token(token)
+            if oidc_user:
+                return oidc_user
+
         try:
             payload = jwt.decode(
                 token,
@@ -490,6 +501,97 @@ async def download_backup(name: str, _: TokenUser = Depends(get_admin)):
 @app.get("/api/v1/ops/registry-export")
 async def registry_export(_: TokenUser = Depends(get_admin)):
     return export_registry()
+
+
+# ---- Mobile DFIR Tools API (ALEAPP, iLEAPP, Andriller) -------------------
+class AleappRunRequest(BaseModel):
+    input_type: str = "tar"
+    input_path: str
+    output_path: Optional[str] = None
+    custom_folder: Optional[str] = None
+
+
+class IleappRunRequest(BaseModel):
+    input_type: str = "tar"
+    input_path: str
+    output_path: Optional[str] = None
+    custom_folder: Optional[str] = None
+
+
+class AndrillerRunRequest(BaseModel):
+    action: str = "adb_triage"  # "adb_triage" or "gui"
+    output_path: Optional[str] = None
+
+
+@app.get("/api/v1/tools/inventory")
+async def tools_inventory(_: TokenUser = Depends(get_admin)):
+    return tools_runner.get_tool_inventory()
+
+
+@app.get("/api/v1/tools/tasks")
+async def tools_tasks(limit: int = 50, _: TokenUser = Depends(get_admin)):
+    return {"tasks": tools_runner.list_tasks(limit=limit)}
+
+
+@app.get("/api/v1/tools/tasks/{task_id}")
+async def tools_task_detail(task_id: str, _: TokenUser = Depends(get_admin)):
+    task = tools_runner.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task.to_dict()
+
+
+@app.get("/api/v1/tools/reports")
+async def tools_reports(_: TokenUser = Depends(get_admin)):
+    return {"reports": tools_runner.list_reports()}
+
+
+@app.post("/api/v1/tools/aleapp/run")
+async def tools_run_aleapp(payload: AleappRunRequest, user: TokenUser = Depends(get_admin)):
+    try:
+        task = tools_runner.run_aleapp(
+            input_type=payload.input_type,
+            input_path=payload.input_path,
+            output_path=payload.output_path,
+            custom_folder=payload.custom_folder,
+            user_id=user.user_id,
+        )
+        return task.to_dict()
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/v1/tools/ileapp/run")
+async def tools_run_ileapp(payload: IleappRunRequest, user: TokenUser = Depends(get_admin)):
+    try:
+        task = tools_runner.run_ileapp(
+            input_type=payload.input_type,
+            input_path=payload.input_path,
+            output_path=payload.output_path,
+            custom_folder=payload.custom_folder,
+            user_id=user.user_id,
+        )
+        return task.to_dict()
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/v1/tools/andriller/run")
+async def tools_run_andriller(payload: AndrillerRunRequest, user: TokenUser = Depends(get_admin)):
+    try:
+        if payload.action == "gui":
+            task = tools_runner.run_andriller_gui(user_id=user.user_id)
+        else:
+            task = tools_runner.run_andriller_adb_triage(output_path=payload.output_path, user_id=user.user_id)
+        return task.to_dict()
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 async def run_cli_stdio() -> None:

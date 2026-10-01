@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 130" width="100%" height="100%">
+  <defs>
+    <linearGradient id="neonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c8ff3d" />
+      <stop offset="100%" stop-color="#a3e635" />
+    </linearGradient>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#151d2a" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#0b0f17" stop-opacity="0.98" />
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c8ff3d" />
+      <stop offset="50%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Left Emblem / Cyber Forensic Shield -->
+  <g transform="translate(10, 5)">
+    <!-- Hexagon Outer Border & Fill -->
+    <polygon points="65,12 110,38 110,88 65,114 20,88 20,38"
+             fill="url(#shieldGrad)"
+             stroke="url(#borderGrad)"
+             stroke-width="3.5"
+             stroke-linejoin="round"
+             filter="url(#glow)" />
+
+    <!-- Forensic Reticle / Circuit Nodes -->
+    <circle cx="65" cy="63" r="32" fill="none" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5" stroke-dasharray="4 3" />
+    <circle cx="65" cy="63" r="22" fill="none" stroke="rgba(200, 255, 61, 0.3)" stroke-width="1.2" />
+
+    <!-- Stylized FX Monogram Geometry -->
+    <!-- F Stem & Crossbars -->
+    <path d="M 44,45 L 61,45 L 61,50 L 51,50 L 51,58 L 59,58 L 59,63 L 51,63 L 51,81 L 44,81 Z"
+          fill="#ffffff" />
+
+    <!-- X Dynamic Cyber Blades -->
+    <path d="M 64,45 L 72,45 L 86,81 L 78,81 Z"
+          fill="url(#neonGrad)" />
+    <path d="M 86,45 L 78,45 L 64,81 L 72,81 Z"
+          fill="url(#cyanGrad)" />
+
+    <!-- Core Security Node -->
+    <circle cx="75" cy="63" r="3.5" fill="#c8ff3d" filter="url(#glow)" />
+    
+    <!-- Top-Right Forensic Status Pip -->
+    <circle cx="106" cy="38" r="3.5" fill="#c8ff3d" />
+  </g>
+
+  <!-- Typography: ForenZX MCP -->
+  <g transform="translate(145, 0)">
+    <!-- Main Title -->
+    <text x="0" y="72"
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Inter, Helvetica, sans-serif"
+          font-size="52"
+          font-weight="800"
+          fill="#f8fafc"
+          letter-spacing="-0.03em">
+      Foren<tspan fill="url(#neonGrad)" font-weight="900">ZX</tspan>
+      <tspan dx="16" fill="url(#cyanGrad)" font-weight="800" letter-spacing="0.02em">MCP</tspan>
+    </text>
+
+    <!-- Subtitle / Security Badge Pill -->
+    <rect x="2" y="88" width="168" height="22" rx="4"
+          fill="rgba(200, 255, 61, 0.08)"
+          stroke="rgba(200, 255, 61, 0.28)"
+          stroke-width="1" />
+    <circle cx="12" cy="99" r="3" fill="#c8ff3d" />
+    <text x="22" y="103.5"
+          font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          font-size="10.5"
+          font-weight="700"
+          fill="#c8ff3d"
+          letter-spacing="0.14em">DFIR PLATFORM</text>
+
+    <!-- Extra metadata badges -->
+    <text x="184" y="103.5"
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Inter, sans-serif"
+          font-size="11"
+          font-weight="600"
+          fill="#64748b"
+          letter-spacing="0.08em">AUTONOMOUS MCP PROTOCOL</text>
+  </g>
+</svg>

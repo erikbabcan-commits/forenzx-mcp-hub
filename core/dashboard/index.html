@@ -4,14 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>ForenZX MCP Hub</title>
+  <link rel="icon" type="image/svg+xml" href="/static/forenzx-mcp-icon.svg">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand"><div class="brand-mark">FX</div><div><strong>ForenZX</strong><span>MCP HUB v5</span></div></div>
+    <div class="brand"><img src="/static/forenzx-mcp-icon.svg" class="brand-logo" alt="ForenZX MCP Logo" width="42" height="42"><div><strong>ForenZX</strong><span>MCP HUB v5</span></div></div>
     <nav id="nav">
       <button data-view="overview" class="active">Overview</button>
+      <button data-view="tools">Mobile Triage</button>
       <button data-view="servers">MCP Servers</button>
       <button data-view="packs">Forensic Packs</button>
       <button data-view="jobs">Jobs</button>
@@ -39,6 +41,140 @@
         <article class="panel"><div class="panel-head"><h2>Forensic packs</h2><span class="muted">fail closed</span></div><div id="overviewPacks"></div></article>
       </div>
       <article class="panel"><div class="panel-head"><h2>Recent jobs</h2><span class="muted">persistent SQLite</span></div><div id="overviewJobs"></div></article>
+    </section>
+
+    <section id="view-tools" class="view">
+      <div class="cards" id="toolsCards"></div>
+
+      <div class="grid3">
+        <!-- 1. ALEAPP Card -->
+        <article class="panel tool-card">
+          <div class="panel-head">
+            <div>
+              <div class="tool-badge-row"><span class="badge READY">Android</span><span class="type-tag">ALEAPP</span></div>
+              <h2>ALEAPP Triage Parser</h2>
+            </div>
+          </div>
+          <p>Android Logs, Events, and Protobuf Parser. Rozparsuje Wi-Fi siete, správy, históriu, Bluetooth, geolokácie a vygeneruje ucelený HTML/JSON report.</p>
+          <div class="form-grid-single">
+            <label>Formát vstupu (-t)
+              <select id="aleappType">
+                <option value="tar" selected>tar archive (.tar)</option>
+                <option value="zip">zip archive (.zip)</option>
+                <option value="fs">Extracted filesystem folder (fs)</option>
+                <option value="gz">gzip archive (.gz)</option>
+                <option value="raw">Raw disk image (raw)</option>
+              </select>
+            </label>
+            <label>Cesta k triage dátam (-i)
+              <input id="aleappInput" value="vault/android_triage.tar" placeholder="Cesta k súboru / priečinku">
+            </label>
+            <label>Výstupný priečinok reportu (-o)
+              <input id="aleappOutput" value="reports/aleapp" placeholder="Výstupný priečinok">
+            </label>
+          </div>
+          <div class="cmd-box">
+            <code>python tools/ALEAPP/aleapp.py -t <span id="aleappCmdType">tar</span> -i <span id="aleappCmdInput">vault/android_triage.tar</span> -o <span id="aleappCmdOutput">reports/aleapp</span></code>
+          </div>
+          <button id="runAleappBtn" class="btn primary" style="width:100%;margin-top:12px;">▶ Spustiť ALEAPP Analýzu</button>
+        </article>
+
+        <!-- 2. iLEAPP Card -->
+        <article class="panel tool-card">
+          <div class="panel-head">
+            <div>
+              <div class="tool-badge-row"><span class="badge READY">Apple iOS</span><span class="type-tag">iLEAPP</span></div>
+              <h2>iLEAPP Triage Parser</h2>
+            </div>
+          </div>
+          <p>iOS / iPadOS Logs Events And Plists Parser. Zameraný na Apple databázy (Biomes, Powerlog, Safari history, WhatsApp, lokálne SQLite databázy).</p>
+          <div class="form-grid-single">
+            <label>Formát vstupu (-t)
+              <select id="ileappType">
+                <option value="itunes" selected>iTunes backup folder (itunes)</option>
+                <option value="tar">tar archive (.tar)</option>
+                <option value="zip">zip archive (.zip)</option>
+                <option value="fs">Extracted filesystem folder (fs)</option>
+                <option value="raw">Raw disk image (raw)</option>
+                <option value="file">Single file</option>
+              </select>
+            </label>
+            <label>Cesta k iTunes zálohe / sysdiagnose (-i)
+              <input id="ileappInput" value="vault/ios_backup" placeholder="Cesta k súboru / priečinku">
+            </label>
+            <label>Výstupný priečinok reportu (-o)
+              <input id="ileappOutput" value="reports/ileapp" placeholder="Výstupný priečinok">
+            </label>
+          </div>
+          <div class="cmd-box">
+            <code>python tools/iLEAPP/ileapp.py -t <span id="ileappCmdType">itunes</span> -i <span id="ileappCmdInput">vault/ios_backup</span> -o <span id="ileappCmdOutput">reports/ileapp</span></code>
+          </div>
+          <button id="runIleappBtn" class="btn primary" style="width:100%;margin-top:12px;">▶ Spustiť iLEAPP Analýzu</button>
+        </article>
+
+        <!-- 3. Andriller Card -->
+        <article class="panel tool-card">
+          <div class="panel-head">
+            <div>
+              <div class="tool-badge-row"><span class="badge READY">ADB Live</span><span class="type-tag">Andriller</span></div>
+              <h2>Andriller USB Triage</h2>
+            </div>
+          </div>
+          <p>Read-only triage pre Android zariadenia pripojené cez USB kábel s povoleným ladením (Developer Mode / ADB). Vytiahne systémový profil, aplikácie a dekóduje četovacie DB.</p>
+          <div class="form-grid-single">
+            <label>Výstupný priečinok (-o)
+              <input id="andrillerOutput" value="reports/andriller" placeholder="Výstupný priečinok">
+            </label>
+          </div>
+          <div class="cmd-box">
+            <code>python tools/andriller/andriller-gui.py (alebo ADB extrakcia)</code>
+          </div>
+          <div class="actions" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+            <button id="runAndrillerTriageBtn" class="btn primary" style="width:100%;">⚡ Spustiť ADB Triage & Profil</button>
+            <button id="runAndrillerGuiBtn" class="btn ghost" style="width:100%;">🖥️ Otvoriť Andriller GUI</button>
+          </div>
+        </article>
+      </div>
+
+      <!-- Execution Console & Output Logs -->
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Konzola vykonávania & Live Logy</h2>
+            <span class="muted" id="consoleStatus">Čaká na spustenie úlohy</span>
+          </div>
+          <div class="actions">
+            <button id="clearConsoleBtn" class="btn small ghost">Vyčistiť logy</button>
+            <a id="viewReportLink" class="btn small primary hidden" target="_blank" rel="noopener">👁️ Otvoriť vygenerovaný HTML Report</a>
+          </div>
+        </div>
+        <pre id="toolsConsole" class="codebox">Vyberte nástroj a kliknite na akčné tlačidlo vyššie pre spustenie forenznej analýzy...</pre>
+      </article>
+
+      <!-- Generated Reports Table -->
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Vygenerované forenzné reporty</h2>
+            <p>Zoznam nájdených HTML reportov pripravených na okamžité zobrazenie.</p>
+          </div>
+          <button id="refreshReportsBtn" class="btn small ghost">Obnoviť reporty</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Report</th>
+                <th>Cesta</th>
+                <th>Vytvorené</th>
+                <th>Veľkosť</th>
+                <th>Akcia</th>
+              </tr>
+            </thead>
+            <tbody id="reportRows"></tbody>
+          </table>
+        </div>
+      </article>
     </section>
 
     <section id="view-servers" class="view">

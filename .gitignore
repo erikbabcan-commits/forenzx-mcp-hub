@@ -47,6 +47,7 @@ htmlcov/
 .env
 .env.local
 .env.*.local
+.env.authentik
 
 # Forensic Vault & Scratch local data
 /var/forensics/
@@ -69,3 +70,22 @@ poetry.toml
 
 # OS
 .DS_Store
+
+# External forensic tools
+tools/
+
+# Generated forensic reports (runtime output)
+reports/
+
+# Binary forensic payloads (test artifacts)
+payload.bin
+raw_payload.bin
+*.bin
+
+# Supabase local runtime
+supabase/.branches/
+supabase/.temp/
+
+# uv lock (local dev)
+uv.lock
+

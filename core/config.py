@@ -44,6 +44,12 @@ class AppConfig(BaseSettings):
     mcp_auto_health_enabled: bool = True
     maintenance_event_retention_days: int = 30
 
+    # ── OIDC / AUTHENTIK ──────────────────────────────────────────────────
+    oidc_enabled: bool = Field(default=False)
+    oidc_issuer_url: str = Field(default="")
+    oidc_jwks_url: str = Field(default="")
+    oidc_audience: str = Field(default="forenzx-mcp-hub")
+
     @model_validator(mode="before")
     @classmethod
     def handle_aliases(cls, data: Any) -> Any:

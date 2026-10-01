@@ -1,0 +1,102 @@
+services:
+  authentik-postgresql:
+    image: postgres:16-alpine
+    container_name: forenzx-authentik-db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_PASSWORD: ${AUTHENTIK_POSTGRESQL_PASSWORD}
+      POSTGRES_USER: ${AUTHENTIK_POSTGRESQL_USER:-authentik}
+      POSTGRES_DB: ${AUTHENTIK_POSTGRESQL_NAME:-authentik}
+    volumes:
+      - authentik_db_data:/var/lib/postgresql/data
+    networks:
+      - forenzx_network
+
+  authentik-redis:
+    image: redis:7-alpine
+    container_name: forenzx-authentik-redis
+    restart: unless-stopped
+    command: --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - authentik_redis_data:/data
+    networks:
+      - forenzx_network
+
+  authentik-server:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server:2024.12.3}
+    container_name: forenzx-authentik-server
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRESQL_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRESQL_NAME:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRESQL_PASSWORD}
+      AUTHENTIK_BLUEPRINTS_DIR: /blueprints
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+      AUTHENTIK_DISABLE_STARTUP_ANALYTICS: "true"
+      AUTHENTIK_FORENZX_CLIENT_SECRET: ${AUTHENTIK_FORENZX_CLIENT_SECRET}
+    volumes:
+      - ./authentik/media:/media
+      - ./authentik/custom-templates:/templates
+      - ./authentik/blueprints:/blueprints/custom
+    ports:
+      - "${AUTHENTIK_PORT_HTTP:-9000}:9000"
+      - "${AUTHENTIK_PORT_HTTPS:-9443}:9443"
+    depends_on:
+      authentik-postgresql:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+    networks:
+      - forenzx_network
+
+  authentik-worker:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server:2024.12.3}
+    container_name: forenzx-authentik-worker
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRESQL_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRESQL_NAME:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRESQL_PASSWORD}
+      AUTHENTIK_BLUEPRINTS_DIR: /blueprints
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+      AUTHENTIK_DISABLE_STARTUP_ANALYTICS: "true"
+      AUTHENTIK_FORENZX_CLIENT_SECRET: ${AUTHENTIK_FORENZX_CLIENT_SECRET}
+    volumes:
+      - ./authentik/media:/media
+      - ./authentik/custom-templates:/templates
+      - ./authentik/blueprints:/blueprints/custom
+    depends_on:
+      authentik-postgresql:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+    networks:
+      - forenzx_network
+
+volumes:
+  authentik_db_data:
+  authentik_redis_data:
+
+networks:
+  forenzx_network:
+    name: forenzx_network
