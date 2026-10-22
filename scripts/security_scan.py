@@ -2,6 +2,7 @@
 """Security scan script for ForenZX v5 codebase."""
 
 import re
+import sys
 from pathlib import Path
 
 SEARCH_PATTERNS = {
@@ -116,3 +117,6 @@ if __name__ == "__main__":
         print("\n✓ No critical security findings detected!")
     else:
         print(f"\n✗ Found {count} security findings that need attention!")
+
+    # A CI security gate must fail when it reports findings.
+    sys.exit(1 if count else 0)
