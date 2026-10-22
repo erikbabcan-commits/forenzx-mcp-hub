@@ -15,4 +15,3 @@ async def test_analysis_start_advertises_presigned_evidence_contract():
     assert properties["download_url"]["pattern"] == "^https://"
     assert properties["download_filename"]["maxLength"] == 200
     assert "download_url" not in tool["inputSchema"]["required"]
-

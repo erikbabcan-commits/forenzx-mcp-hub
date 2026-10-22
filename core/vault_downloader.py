@@ -24,7 +24,11 @@ class VaultDownloadError(RuntimeError):
 
 
 def _allowed_hosts() -> list[str]:
-    return [item.strip().lower().lstrip(".") for item in os.getenv("FORENZX_PRESIGNED_ALLOWED_HOSTS", "").split(",") if item.strip()]
+    return [
+        item.strip().lower().lstrip(".")
+        for item in os.getenv("FORENZX_PRESIGNED_ALLOWED_HOSTS", "").split(",")
+        if item.strip()
+    ]
 
 
 def _validate_url(url: str) -> None:
@@ -91,4 +95,3 @@ async def download_evidence_to_vault(
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
-
