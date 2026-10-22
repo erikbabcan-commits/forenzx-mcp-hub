@@ -317,4 +317,3 @@ class MCPServer:
         return json.dumps(
             {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}, ensure_ascii=False
         )
-

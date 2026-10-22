@@ -86,4 +86,3 @@ def test_downloader_rejects_redirect_and_ssrf_hosts(monkeypatch):
         vault_downloader._validate_url("https://127.0.0.1/file")
     with pytest.raises(VaultDownloadError):
         vault_downloader._validate_url("https://evil.example.test/file")
-
