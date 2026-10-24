@@ -1,0 +1,105 @@
+ILUMINAT — WINDOWS 11 / AUDIT A PLÁN PRED NASADENÍM
+
+Tento balík je pre agenta s oprávneným prístupom k môjmu vlastnému PC.
+Začni iba krokom A. Pred B a C čakaj na moje samostatné výslovné áno.
+Zverejnenie balíka na GitHube nie je súhlasom so zmenami na počítači.
+
+PRAVIDLÁ
+- Nič nemaž, neformátuj ani nešifruj bez výslovného áno pri každom kroku.
+- Agent nemá admin práva. Admin príkazy iba vypíš pre elevated PowerShell.
+- Heslá, recovery kľúče, tokeny a hodnoty premenných prostredia nevypisuj.
+- Port 3000 (ForenZX-Dashboard) ani bežiace node procesy nezastavuj.
+- Najprv audit a dry-run, až po schválení konkrétne zmeny.
+- Cieľové skripty ukladaj mimo Git repozitárov, napríklad do priečinka
+  Desktop\_ILUMINAT\security\lockdown\ aktuálneho vlastníka. Over skutočnú
+  cestu Desktopu; môže byť presmerovaná do OneDrive.
+- Citlivé údaje neodosielaj na internet bez môjho súhlasu.
+- Ak máš len chat bez nástrojov k PC, priprav postup; netvrď, že si ho spustil.
+- Ostatný obsah hostiteľského repozitára nenastavuj ani nespúšťaj.
+
+ČO JE V BALÍKU
+preview/index.html je offline návrh s čiernym pozadím, zeleným pixelovým písmom,
+terminálovým vzhľadom, textom youh4ck3dme | lockdown a maskovaným poľom Password.
+Každý neprázdny vstup prehrá vizuálnu ukážku. NIE JE TO AUTENTIFIKÁCIA.
+Nezbieraj cez tento formulár skutočné heslo alebo Windows PIN.
+Testy a ich hranice sú zaznamenané v TEST-RESULTS.md.
+
+KROK A — AUDIT, READ-ONLY
+1. Over správny cieľový PC, oprávnený účet, OS edíciu a build.
+2. Zisti BitLocker stav (manage-bde -status), TPM, Secure Boot, počet monitorov
+   a dostupnosť Windows Hello. Nepoužívaj príkazy vypisujúce recovery heslá.
+   Ak read-only dotaz vyžaduje admin práva, iba ho navrhni na manuálne spustenie.
+3. Eviduj iba názvy a existenciu citlivých ciest: Desktop\_ILUMINAT,
+   C:\Projects, .ssh, .env* a browser profiles. Obsah týchto súborov nečítaj.
+4. Zisti, či je zapnutý autologon, čo platí po prebudení, či sú citlivé
+   priečinky v OneDrive a či je PC používaný ako bežný desktop alebo kiosk.
+   Registry dotazy obmedz na konkrétne neprivátne hodnoty; nevypisuj DefaultPassword.
+5. Predlož výsledky bez citlivých hodnôt. Navrhni ochranu uložených dát,
+   uzamknutie relácie a prípadný vizuálny autostart ako oddelené opatrenia.
+6. Vypíš presný rozsah zmien, admin kroky a obnovu. Čakaj na áno.
+
+ZAPNUTIE PC A PRIHLÁSENIE NIE SÚ TO ISTÉ
+- Pred prihlásením musí prístup chrániť prihlasovacia obrazovka Windows.
+- At log on sa spustí až po prihlásení a môže zobraziť pracovnú plochu skôr
+  než aplikáciu. Pri požiadavke na ochranu od zapnutia navrhni vypnutie
+  autologonu a podporované systémové prihlásenie, nie iba overlay.
+- Interaktívna aplikácia spustená ako služba alebo At startup nenahrádza
+  systémovú prihlasovaciu obrazovku.
+- Fullscreen browser API spravidla potrebuje gesto používateľa. Automatické
+  spustenie HTML preto samo osebe nezaručí fullscreen.
+- HTML neprekryje automaticky všetky monitory a neblokuje systémové skratky.
+- Ctrl+Alt+Del / Secure Attention Sequence bežný user-mode overlay nezablokuje.
+- Topmost okno nie je bezpečnostná hranica. Zámok nezastaví procesy, ktoré už
+  majú oprávnenie čítať dáta. Úplné blokovanie klávesnice by znemožnilo aj odomknutie.
+
+KROK B — OCHRANA DÁT, AŽ PO SÚHLASE
+- Preferuj podporované systémové šifrovanie / BitLocker podľa edície a stavu PC.
+  Pred aktiváciou over obnovu a uloženie recovery kľúča mimo tohto PC, napríklad
+  na USB alebo do správcu hesiel. Kľúč nikdy nedávaj do chatu, GitHubu ani logu.
+- BitLocker chráni dáta na uzamknutom disku; po odomknutí disku neblokuje
+  čítanie oprávnenými procesmi ani automaticky nezastaví odosielanie do cloudu.
+- Alternatívny 7z archív vytvor iba s interaktívnym heslom, bez hesla v príkaze.
+  Originály zostávajú nechránené a podľa mojich pravidiel sa automaticky nemažú.
+- Pri EFS najprv zabezpeč offsite zálohu certifikátu aj súkromného kľúča.
+- Zmeny OneDrive vykonaj až po schválení a s vysvetlením dôsledkov.
+  Vypnutie synchronizácie neodstráni už nahraté cloudové kópie.
+- Zaznamenaj len čo je šifrované, kde vlastník nájde recovery a ako obnoviť prístup.
+
+KROK C — SYSTÉMOVÝ ZÁMOK A VIZUÁLNA APLIKÁCIA, AŽ PO SÚHLASE
+- Skutočné uzamknutie rieš podporovanými funkciami Windows; pre jednoúčelový
+  kiosk zhodnoť dostupný podporovaný kiosk režim.
+- Windows Hello a PIN patria do systémovej autentifikácie. Nepodobaj sa na
+  systémové overenie vlastným HTML formulárom a neukladaj systémový PIN.
+- Po schválení navrhni a priprav Install-Lockdown.ps1, Start-Lockdown.ps1,
+  odomknutie alebo Unlock-Lockdown.ps1 a Uninstall-Lockdown.ps1.
+- Vlastná vizuálna vrstva môže byť čierna, Borderless, Topmost a pokrývať monitory;
+  jej limity oproti systémovému zámku dokumentuj priamo v odovzdaní.
+- Ak sa použije samostatná fráza aplikácie, nikdy plaintext; použi súčasné
+  podporované derivovanie hesla s náhodnou soľou a vhodnými parametrami,
+  ACL pre vlastníka a oddelenú overenú obnovu. Nesmie nahradiť Windows ochranu.
+- Po 5 chybných pokusoch môže byť oneskorenie a voliteľný zvuk; žiadna strata dát.
+- Loguj iba úspech/neúspech, nie zadaný text ani odvodené prihlasovacie údaje.
+- Watchdog nechaj vypnutý, kým neprejdú manuálne testy obnovy a odinštalovania.
+  Nezasahuj do systémových bezpečnostných mechanizmov ani do iných aplikácií.
+- Kill-switch a obnovu over vopred. Safe Mode nie je univerzálne zaručená obnova,
+  najmä pri BitLockeri; over prístup k recovery ešte pred autostartom.
+- Prípadnú úlohu IluminatLockdown nastav At log on of current user,
+  Run only when user is logged on, bez Highest privileges, ak nie sú potrebné.
+- HTML demo nenasadzuj ako hotový bezpečnostný produkt. Neodstraňuj jeho označenie
+  ukážky bez doplnenia a overenia skutočnej samostatnej systémovej ochrany.
+
+KROK D — TESTY PRED AUTOSTARTOM A PO SCHVÁLENÍ
+1. Najprv manuálne spustenie: vzhľad, všetky monitory, odomknutie a ukončenie.
+2. Over núdzovú obnovu a vypnutie prípadného watchdogu.
+3. Over odstránenie autostartu. Pred odstránením súborov vyžiadaj súhlas.
+4. Až potom po samostatnom súhlase testuj logoff/logon a reštart. Tieto operácie
+   môžu ukončiť používateľské node procesy; nevykonávaj ich počas práce dashboardu.
+5. Zmeraj skutočný autostart, prípadnú medzeru pred zobrazením a správanie
+   po odomknutí. Over port 3000 bez zásahu do procesov.
+6. Rozlišuj PASS, FAIL a NOT_VERIFIED. JS test ani vytvorenie Scheduled Task
+   nevydávaj za overený reštart PC alebo za overenú ochranu dát.
+
+KROK E — ODOVZDANIE
+Uveď presné cesty, spôsob systémového odomknutia, bezpečné vypnutie autostartu,
+obnovu a odinštalovanie, potrebné admin kroky a zvyšné riziká.
+Žiadne tvrdenie o nasadení alebo úspešnom teste bez merania na cieľovom PC.
