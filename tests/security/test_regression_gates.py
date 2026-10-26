@@ -398,12 +398,21 @@ class TestDockerLazyClientAndIsolation:
             input_type="ios_backup",
         )
 
+        # Supply real IOC bytes so the worker's snapshot parity check succeeds
+        # before it reaches the unavailable Docker infrastructure.
+        import hashlib
+
+        ioc_path = tmp_path / "iocs"
+        ioc_path.write_bytes(b'{"type":"bundle","objects":[]}')
+        ioc_sha256 = hashlib.sha256(ioc_path.read_bytes()).hexdigest()
+        monkeypatch.setattr(config, "scratch_base_dir", tmp_path / "scratch")
+
         # Mock Vault and ThreatIntel to succeed so execution reaches Docker client invocation
         with (
             patch("core.vault.EvidenceVault.resolve_path", return_value=tmp_path / "evidence"),
             patch(
                 "core.threat_intel.ThreatIntelVault.get_pinned_stix_bundle",
-                return_value=(tmp_path / "iocs", "sha", "1.0"),
+                return_value=(ioc_path, ioc_sha256, "1.0"),
             ),
             patch("core.vault.EvidenceVault.calculate_integrity", return_value=("mockhash", 1024, {})),
         ):

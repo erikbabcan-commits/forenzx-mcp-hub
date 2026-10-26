@@ -5,6 +5,7 @@ Paralelný worker pool s garanciou cleanupu.
 from __future__ import annotations
 
 import asyncio
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict
@@ -131,10 +132,20 @@ class WorkerPool:
                 out_dir = scratch_dir / "output"
                 out_dir.mkdir(parents=True, exist_ok=True)
 
+                # Mount a job-local snapshot, never the mutable shared IOC source.
+                # Rehash the copied bytes so a source replacement between vault
+                # validation and this copy cannot change the accepted digest.
+                ioc_snapshot = scratch_dir / "ioc-bundle.stix2"
+                with ioc_path.open("rb") as source, ioc_snapshot.open("xb") as target:
+                    shutil.copyfileobj(source, target)
+                ioc_snapshot.chmod(0o400)
+                if not ThreatIntelVault.verify_bundle_hash(ioc_snapshot, ioc_sha256):
+                    raise ThreatIntelError("THREAT INTEL FAIL CLOSED: IOC snapshot digest mismatch. Analysis blocked.")
+
                 # 5. Setup Docker mounts (read-only for evidence)
                 mounts = [
                     {"host_path": evd_path, "container_path": "/evidence/input", "mode": "ro"},
-                    {"host_path": ioc_path, "container_path": "/evidence/ioc/bundle.stix2", "mode": "ro"},
+                    {"host_path": ioc_snapshot, "container_path": "/evidence/ioc/bundle.stix2", "mode": "ro"},
                     {"host_path": out_dir, "container_path": "/evidence/output", "mode": "rw"},
                 ]
 
@@ -296,6 +307,7 @@ class WorkerPool:
                 except Exception as e:
                     logger.error(f"Post-execution integrity check failed: {e}")
                     post_hash = "UNKNOWN"
+                ioc_integrity_ok = ThreatIntelVault.verify_bundle_hash(ioc_snapshot, ioc_sha256)
 
                 # Build chain of custody
                 coc = [
@@ -357,7 +369,14 @@ class WorkerPool:
                     logger.error(f"Failed to sign execution record: {e}")
 
                 # Hard stop if read-only evidence changed despite sandbox policy.
-                if post_hash != root_hash:
+                if post_hash != root_hash or not ioc_integrity_ok:
+                    integrity_warnings = []
+                    if post_hash != root_hash:
+                        integrity_warnings.append("Evidence integrity changed during analysis; result blocked")
+                    if not ioc_integrity_ok:
+                        integrity_warnings.append(
+                            "Threat intelligence snapshot integrity changed during analysis; result blocked"
+                        )
                     return AnalysisResult(
                         job_id=job_id,
                         pack_id=manifest.id,
@@ -375,7 +394,7 @@ class WorkerPool:
                             "size_bytes": size_b,
                         },
                         findings=[],
-                        warnings=["Evidence integrity changed during analysis; result blocked"],
+                        warnings=integrity_warnings,
                         limitations=["Security boundary violation"],
                         chain_of_custody=coc,
                         execution_record=rec,

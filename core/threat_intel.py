@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Tuple
@@ -45,24 +46,24 @@ class ThreatIntelVault:
         """
         Load and verify a STIX2 IoC bundle.
 
-        Production behavior:
+        All environments:
         - Missing bundle: raises ThreatIntelError (FAIL CLOSED)
         - Corrupt bundle: raises ThreatIntelError (FAIL CLOSED)
-        - Hash mismatch: raises ThreatIntelError (FAIL CLOSED)
+        - Missing/malformed trust configuration: raises ThreatIntelError
+        - Digest not in FORENZX_TRUSTED_STIX_DIGESTS: raises ThreatIntelError
+        - Every call re-reads bytes and checks current trust (no cache bypass)
 
-        Development/test behavior (with explicit env var):
-        - Creates sample bundle ONLY if ENVIRONMENT is development/test
+        Development/test behavior:
+        - Creates a missing sample ONLY if ENVIRONMENT is development/test
+        - Samples still require an explicitly approved digest
         """
         ioc_dir = config.threat_intel_dir.resolve()
         bundle_path = (ioc_dir / bundle_name).resolve()
 
-        # In production, we MUST fail closed
+        # Trust is explicit in every environment, including generated samples.
         env = config.environment.lower()
-
-        # Check if we've already loaded this bundle
-        if bundle_name in cls._loaded_bundles:
-            bundle_info = cls._loaded_bundles[bundle_name]
-            return bundle_path, bundle_info.sha256, bundle_info.version
+        if bundle_path.parent != ioc_dir:
+            raise ThreatIntelError("THREAT INTEL FAIL CLOSED: bundle must be inside THREAT_INTEL_DIR.")
 
         # Verify the bundle exists
         if not bundle_path.is_file():
@@ -98,7 +99,7 @@ class ThreatIntelVault:
             with open(bundle_path, "rb") as f:
                 bundle_content = f.read()
             json.loads(bundle_content)
-        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
             raise ThreatIntelError(
                 f"THREAT INTEL FAIL CLOSED: IOC bundle '{bundle_name}' is corrupt. " f"Error: {e}. Analysis blocked."
             )
@@ -108,8 +109,15 @@ class ThreatIntelVault:
         hasher.update(bundle_content)
         bundle_sha256 = hasher.hexdigest().lower()
 
-        # In production, verify against expected hash if configured
-        # For now, we accept any valid bundle in dev/test
+        # Do not trust cached metadata: files and allowlists may change between jobs.
+        raw_allowlist = config.forenzx_trusted_stix_digests
+        trusted_digests = {item.strip().lower() for item in raw_allowlist.split(",") if item.strip()}
+        if not trusted_digests or any(not re.fullmatch(r"[0-9a-f]{64}", item) for item in trusted_digests):
+            raise ThreatIntelError(
+                "THREAT INTEL FAIL CLOSED: FORENZX_TRUSTED_STIX_DIGESTS must contain approved SHA-256 digests."
+            )
+        if bundle_sha256 not in trusted_digests:
+            raise ThreatIntelError("THREAT INTEL FAIL CLOSED: IOC bundle digest is not trusted. Analysis blocked.")
         version = "2026.09.29-STIX2-ENTERPRISE"
 
         # Store bundle info
