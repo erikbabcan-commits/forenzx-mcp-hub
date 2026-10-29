@@ -90,19 +90,26 @@ Each pack must have an `adapter.py` file that defines a class inheriting from `F
 
 ```python
 from packs.base import ForensicPackAdapter
-from core.models.forensic import PackManifest, EvidenceInputSpec, DetectionClassification, ForensicFinding, TimelineEvent
+from core.models.forensic import (
+    PackManifest,
+    EvidenceInputSpec,
+    DetectionClassification,
+    ForensicFinding,
+    TimelineEvent,
+)
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
 
 class MyPackAdapter(ForensicPackAdapter):
     def get_execution_command(self, spec: EvidenceInputSpec, params: Dict[str, Any]) -> List[str]:
         """Return execution command as argv list."""
         return ["my-tool", "--input", "/evidence/input", "--output", "/evidence/output"]
-    
+
     async def validate_input(self, spec: EvidenceInputSpec) -> bool:
         """Validate input specification."""
         return spec.input_type in self.SUPPORTED_INPUT_TYPES
-    
+
     async def parse_output_artifacts(
         self, output_dir: Path
     ) -> Tuple[DetectionClassification, List[ForensicFinding], List[TimelineEvent], List[str]]:
@@ -111,9 +118,9 @@ class MyPackAdapter(ForensicPackAdapter):
         timeline = []
         warnings = []
         classification = DetectionClassification.NO_KNOWN_IOC
-        
+
         # Parse output files...
-        
+
         return classification, findings, timeline, warnings
 ```
 
@@ -124,17 +131,17 @@ class ForensicPackAdapter(ABC):
     def __init__(self, manifest: PackManifest, scratch_dir: Path) -> None:
         self.manifest = manifest
         self.scratch_dir = scratch_dir
-    
+
     @abstractmethod
     def get_execution_command(self, spec: EvidenceInputSpec, params: Dict[str, Any]) -> List[str]:
         """Get execution command as argv list."""
         pass
-    
+
     @abstractmethod
     async def validate_input(self, spec: EvidenceInputSpec) -> bool:
         """Validate input specification."""
         pass
-    
+
     @abstractmethod
     async def parse_output_artifacts(
         self, output_dir: Path
@@ -299,12 +306,8 @@ manifest = pack_registry.get_pack("mobile_compromise")
 adapter_class = pack_registry.get_adapter("mobile_compromise")
 
 if manifest and adapter_class:
-    spec = EvidenceInputSpec(
-        case_id="CASE-001",
-        evidence_id="EVIDENCE-001",
-        input_type="ios_backup"
-    )
-    
+    spec = EvidenceInputSpec(case_id="CASE-001", evidence_id="EVIDENCE-001", input_type="ios_backup")
+
     # Execute analysis...
 else:
     # Pack not found or disabled - fail closed

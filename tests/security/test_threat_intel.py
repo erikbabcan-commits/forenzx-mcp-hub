@@ -2,16 +2,23 @@
 Threat Intel tests - Verify fail-closed IOC bundle loading.
 """
 
+import hashlib
+import json
+
 import pytest
 
-from core.config import config
+from core.config import AppConfig, config
 from core.threat_intel import IOCBundleInfo, ThreatIntelError, ThreatIntelVault
 
 
 @pytest.fixture(autouse=True)
-def setup_test_env():
+def setup_test_env(monkeypatch):
     """Setup test environment."""
-    config.environment = "test"
+    monkeypatch.setattr(config, "environment", "test")
+    monkeypatch.setattr(config, "forenzx_trusted_stix_digests", "")
+    ThreatIntelVault.reset()
+    yield
+    ThreatIntelVault.reset()
 
 
 @pytest.fixture
@@ -24,6 +31,11 @@ def temp_threat_intel_dir(tmp_path):
 
 class TestThreatIntelVault:
     """Test threat intelligence vault."""
+
+    def test_runtime_reads_canonical_allowlist_environment(self, monkeypatch):
+        digest = hashlib.sha256(b"approved-test-bundle").hexdigest()
+        monkeypatch.setenv("FORENZX_TRUSTED_STIX_DIGESTS", digest)
+        assert AppConfig(_env_file=None).forenzx_trusted_stix_digests == digest
 
     def test_missing_ioc_bundle_in_production_fails(self, monkeypatch, tmp_path):
         """Production: missing IOC bundle must FAIL CLOSED."""
@@ -85,7 +97,9 @@ class TestThreatIntelVault:
         # Reset loaded bundles
         ThreatIntelVault._loaded_bundles = {}
 
-        # Should succeed in test mode
+        monkeypatch.setattr(
+            config, "forenzx_trusted_stix_digests", hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+        )
         path, sha256, version = ThreatIntelVault.get_pinned_stix_bundle("valid_bundle.stix2")
 
         assert path.exists()
@@ -100,7 +114,13 @@ class TestThreatIntelVault:
         # Reset loaded bundles
         ThreatIntelVault._loaded_bundles = {}
 
-        # Should create sample bundle
+        # Generated development samples do not establish trust automatically.
+        with pytest.raises(ThreatIntelError, match="FORENZX_TRUSTED_STIX_DIGESTS"):
+            ThreatIntelVault.get_pinned_stix_bundle("sample.stix2")
+        sample_path = tmp_path / "sample.stix2"
+        monkeypatch.setattr(
+            config, "forenzx_trusted_stix_digests", hashlib.sha256(sample_path.read_bytes()).hexdigest()
+        )
         path, sha256, version = ThreatIntelVault.get_pinned_stix_bundle("sample.stix2")
 
         assert path.exists()
@@ -124,6 +144,9 @@ class TestThreatIntelVault:
 
         with open(bundle_path, "w") as f:
             json.dump({"type": "bundle", "id": "bundle--cache-test", "objects": []}, f)
+        monkeypatch.setattr(
+            config, "forenzx_trusted_stix_digests", hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+        )
 
         # Reset loaded bundles
         ThreatIntelVault._loaded_bundles = {}
@@ -131,7 +154,7 @@ class TestThreatIntelVault:
         # Load once
         path1, sha1, ver1 = ThreatIntelVault.get_pinned_stix_bundle("cached_bundle.stix2")
 
-        # Load again - should use cache
+        # Load again - same bytes and allowlist give the same digest.
         path2, sha2, ver2 = ThreatIntelVault.get_pinned_stix_bundle("cached_bundle.stix2")
 
         assert sha1 == sha2
@@ -148,6 +171,9 @@ class TestThreatIntelVault:
 
         with open(bundle_path, "w") as f:
             json.dump({"type": "bundle", "id": "bundle--info-test", "objects": []}, f)
+        monkeypatch.setattr(
+            config, "forenzx_trusted_stix_digests", hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+        )
 
         # Reset loaded bundles
         ThreatIntelVault._loaded_bundles = {}
@@ -162,6 +188,56 @@ class TestThreatIntelVault:
         assert info.sha256 == sha256
         assert info.version == version
         assert info.source == str(bundle_path)
+
+    @pytest.mark.parametrize("environment", ["production", "staging", "development", "test"])
+    @pytest.mark.parametrize("allowlist", ["", " ", "bad-digest", "a" * 64, "a" * 64 + ",malformed"])
+    def test_missing_malformed_or_wrong_pin_blocks_every_environment(
+        self, monkeypatch, tmp_path, environment, allowlist
+    ):
+        monkeypatch.setattr(config, "environment", environment)
+        monkeypatch.setattr(config, "threat_intel_dir", tmp_path)
+        monkeypatch.setattr(config, "forenzx_trusted_stix_digests", allowlist)
+        (tmp_path / "bundle.stix2").write_text(json.dumps({"type": "bundle", "objects": []}))
+        with pytest.raises(ThreatIntelError, match="FAIL CLOSED"):
+            ThreatIntelVault.get_pinned_stix_bundle("bundle.stix2")
+        assert not ThreatIntelVault._loaded_bundles
+
+    def test_correct_pin_matches_exact_file_bytes(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(config, "environment", "production")
+        monkeypatch.setattr(config, "threat_intel_dir", tmp_path)
+        bundle_path = tmp_path / "bundle.stix2"
+        bundle_path.write_bytes(b'{"type":"bundle","objects":[]}\n')
+        digest = hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+        monkeypatch.setattr(config, "forenzx_trusted_stix_digests", "a" * 64 + ", " + digest.upper())
+        path, actual_digest, _ = ThreatIntelVault.get_pinned_stix_bundle("bundle.stix2")
+        assert path == bundle_path
+        assert actual_digest == digest
+        # Semantically identical JSON with different bytes is not pinned.
+        bundle_path.write_bytes(b'{"type":"bundle","objects":[]}')
+        with pytest.raises(ThreatIntelError, match="digest is not trusted"):
+            ThreatIntelVault.get_pinned_stix_bundle("bundle.stix2")
+
+    def test_revoking_cached_pin_blocks_next_load(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(config, "threat_intel_dir", tmp_path)
+        bundle_path = tmp_path / "bundle.stix2"
+        bundle_path.write_bytes(b'{"type":"bundle","objects":[]}')
+        monkeypatch.setattr(
+            config, "forenzx_trusted_stix_digests", hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+        )
+        ThreatIntelVault.get_pinned_stix_bundle("bundle.stix2")
+        monkeypatch.setattr(config, "forenzx_trusted_stix_digests", "")
+        with pytest.raises(ThreatIntelError, match="FORENZX_TRUSTED_STIX_DIGESTS"):
+            ThreatIntelVault.get_pinned_stix_bundle("bundle.stix2")
+
+    def test_path_escape_blocks_even_trusted_digest(self, monkeypatch, tmp_path):
+        ioc_dir = tmp_path / "ioc"
+        ioc_dir.mkdir()
+        outside = tmp_path / "outside.stix2"
+        outside.write_bytes(b'{"type":"bundle","objects":[]}')
+        monkeypatch.setattr(config, "threat_intel_dir", ioc_dir)
+        monkeypatch.setattr(config, "forenzx_trusted_stix_digests", hashlib.sha256(outside.read_bytes()).hexdigest())
+        with pytest.raises(ThreatIntelError, match="inside THREAT_INTEL_DIR"):
+            ThreatIntelVault.get_pinned_stix_bundle("../outside.stix2")
 
 
 class TestIOCBundleInfo:

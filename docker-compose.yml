@@ -6,6 +6,12 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      DATA_DIR: /data
+      DATABASE_PATH: /data/forenzx.db
+      BACKUPS_DIR: /data/backups
+      VAULT_BASE_DIR: /data/vault
+      SCRATCH_BASE_DIR: /tmp/forenzx_scratch
     ports:
       - "8000:8000"
     volumes:

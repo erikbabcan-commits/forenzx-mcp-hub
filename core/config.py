@@ -25,6 +25,8 @@ class AppConfig(BaseSettings):
     vault_base_dir: Path = Field(default=Path("/var/forensics/vault"))
     scratch_base_dir: Path = Field(default=Path("/tmp/forenzx_scratch"))
     threat_intel_dir: Path = Field(default=Path("/var/forensics/threat_intel"))
+    # Comma-separated SHA-256 hex digests; checked at consumption, never TOFU.
+    forenzx_trusted_stix_digests: str = ""
     packs_dir: Path = Field(default=Path("./packs"))
 
     worker_pool_size: int = 4

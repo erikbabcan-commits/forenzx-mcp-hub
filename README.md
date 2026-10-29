@@ -282,3 +282,23 @@ by an admin via `PUT /api/v1/mcp-servers/{id}/trust` (states: `UNVERIFIED`,
 `TRUSTED`, `QUARANTINED`, `DISABLED`) and every transition is audited with a
 trace id. See
 [`docs/architecture/adr/0006-remote-mcp-trust-model.md`](docs/architecture/adr/0006-remote-mcp-trust-model.md).
+
+## Verification and demo scope
+
+This repository is a prototype/control-plane reference, not a security
+certification or a claim of a working hosted API. The configured GitHub homepage
+returned HTTP 404 during a read-only check on 2026-10-22; use the repository
+documentation until the owner verifies a replacement. Homepage metadata is not
+changed by this PR and a failed homepage does not prove the API is down.
+
+Reproduce with synthetic data only:
+
+```sh
+poetry install --with dev
+poetry run pytest -q tests/integration/test_mcp.py tests/security/test_acl.py
+make verify
+```
+
+The protocol tests exercise initialization, tool listing/calls and negative
+access behavior locally; actual forensic pack execution requires its separate
+Docker/sandbox verification. Never supply real evidence to the examples.

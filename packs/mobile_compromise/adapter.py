@@ -76,7 +76,7 @@ class MobileCompromiseAdapter(ForensicPackAdapter):
                     ioc_d = r.get("matched_indicator", {})
                     findings.append(
                         ForensicFinding(
-                            id=f"mvt-{mod}-{idx+1}",
+                            id=f"mvt-{mod}-{idx + 1}",
                             classification=DetectionClassification.HIT,
                             confidence="HIGH",
                             ioc_type="spyware_trace",
@@ -101,7 +101,7 @@ class MobileCompromiseAdapter(ForensicPackAdapter):
                     has_suspicious = True
                     findings.append(
                         ForensicFinding(
-                            id=f"susp-{sf.stem}-{idx+1}",
+                            id=f"susp-{sf.stem}-{idx + 1}",
                             classification=DetectionClassification.SUSPICIOUS,
                             confidence="MEDIUM",
                             ioc_type="heuristic_anomaly",
