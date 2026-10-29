@@ -16,6 +16,14 @@
    ```bash
    make compose-check   # docker compose config
    ```
+   Install independently reviewed STIX bundles under `THREAT_INTEL_DIR` and set
+   `FORENZX_TRUSTED_STIX_DIGESTS` to their approved raw-file SHA-256 hex digests
+   (comma-separated). Never derive approval automatically from an untrusted
+   download. Missing/empty/malformed allowlists and unlisted digests block
+   analysis, including in development/test. The Hub checks file bytes and the
+   active allowlist on every job; cached metadata never authorizes execution.
+   Workers mount a per-job verified snapshot read-only and recheck it before
+   accepting results; the execution record retains its exact digest.
 3. Build and start:
    ```bash
    make docker-build

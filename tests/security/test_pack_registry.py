@@ -147,9 +147,28 @@ class TestPackRegistry:
         # Unknown pack
         assert registry.get_pack("nonexistent_pack") is None
 
-    def test_placeholder_digest_disables_mobile_pack(self):
-        """The shipped placeholder digest must be visible but disabled until pinned."""
-        record = next(x for x in pack_registry.describe() if x["id"] == "mobile_compromise")
+    def test_placeholder_digest_disables_pack(self, temp_packs_dir):
+        """Any placeholder digest must be visible but fail closed."""
+        placeholder = {
+            "id": "mobile_compromise",
+            "name": "Mobile Compromise",
+            "version": "1.0.0",
+            "description": "Test placeholder digest",
+            "license": "MIT",
+            "author": "Test",
+            "supported_platforms": ["linux"],
+            "supported_inputs": ["ios_backup"],
+            "capabilities": ["test"],
+            "container_image": "ghcr.io/example/mobile",
+            "pinned_image_digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            "enabled": True,
+        }
+        pack_dir = temp_packs_dir / "mobile_compromise"
+        pack_dir.mkdir()
+        (pack_dir / "manifest.json").write_text(json.dumps(placeholder), encoding="utf-8")
+        registry = PackRegistry(packs_dir=temp_packs_dir)
+        registry.load_packs()
+        record = next(x for x in registry.describe() if x["id"] == "mobile_compromise")
         assert record["enabled"] is False
         assert record["registry_error"]
 
