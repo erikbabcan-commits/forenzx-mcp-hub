@@ -126,7 +126,7 @@ def current_version(conn: sqlite3.Connection) -> int:
 
 def _stamp(conn: sqlite3.Connection, version: int, name: str) -> None:
     conn.execute(
-        "INSERT INTO schema_migrations(version, name, applied_at) VALUES(?,?," "STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))",
+        "INSERT INTO schema_migrations(version, name, applied_at) VALUES(?,?,STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))",
         (version, name),
     )
 

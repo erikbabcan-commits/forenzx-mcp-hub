@@ -101,7 +101,7 @@ class ThreatIntelVault:
             json.loads(bundle_content)
         except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
             raise ThreatIntelError(
-                f"THREAT INTEL FAIL CLOSED: IOC bundle '{bundle_name}' is corrupt. " f"Error: {e}. Analysis blocked."
+                f"THREAT INTEL FAIL CLOSED: IOC bundle '{bundle_name}' is corrupt. Error: {e}. Analysis blocked."
             )
 
         # Compute hash
