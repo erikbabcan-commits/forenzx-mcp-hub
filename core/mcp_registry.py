@@ -248,7 +248,7 @@ class MCPRegistry:
     async def _rpc(
         self, row: dict[str, Any], method: str, params: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], int]:
-        body: dict[str, Any] = {"jsonrpc": "2.0", "id": f"hub-{int(time.time()*1000)}", "method": method}
+        body: dict[str, Any] = {"jsonrpc": "2.0", "id": f"hub-{int(time.time() * 1000)}", "method": method}
         if params is not None:
             body["params"] = params
         started = time.perf_counter()
