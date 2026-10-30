@@ -139,13 +139,18 @@ def export_registry() -> dict:
         "SELECT id,name,server_type,url,transport,enabled,auth_type,custom_headers_json,tags_json,notes,maintenance_url,created_at,updated_at,last_status FROM mcp_servers ORDER BY name"
     )
     for row in rows:
-        row["custom_headers"] = json.loads(row.pop("custom_headers_json") or "{}")
+        # Header values are write-only credentials; even innocuously named
+        # custom headers can carry secrets. Export names for inventory only.
+        header_names = sorted(json.loads(row.pop("custom_headers_json") or "{}").keys())
+        row["custom_header_names"] = header_names
+        row["has_custom_headers"] = bool(header_names)
         row["tags"] = json.loads(row.pop("tags_json") or "[]")
         row["enabled"] = bool(row["enabled"])
         row["has_secret"] = row["auth_type"] != "none"
     return {
-        "version": 1,
+        "version": 2,
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "servers": rows,
         "secrets_included": False,
+        "custom_header_values_included": False,
     }

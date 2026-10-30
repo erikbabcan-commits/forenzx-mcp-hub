@@ -88,6 +88,9 @@ class MCPRegistry:
 
     @staticmethod
     def _public(row: dict[str, Any]) -> dict[str, Any]:
+        # Custom headers may contain API keys or bearer tokens regardless of
+        # their names. Public/admin listing responses are not credential exports.
+        header_names = sorted(json.loads(row.get("custom_headers_json") or "{}").keys())
         return {
             "id": row["id"],
             "name": row["name"],
@@ -97,7 +100,8 @@ class MCPRegistry:
             "enabled": bool(row["enabled"]),
             "auth_type": row["auth_type"],
             "has_auth_secret": bool(row.get("auth_secret_encrypted")),
-            "custom_headers": json.loads(row.get("custom_headers_json") or "{}"),
+            "custom_header_names": header_names,
+            "has_custom_headers": bool(header_names),
             "tags": json.loads(row.get("tags_json") or "[]"),
             "notes": row.get("notes") or "",
             "maintenance_url": row.get("maintenance_url"),
