@@ -8,13 +8,31 @@ It combines:
 - backward-compatible `POST /mcp/jsonrpc`
 - persistent SQLite job metadata/results
 - a remote MCP server registry
-- encrypted remote MCP credentials
+- encrypted bearer/API-key credentials (custom header values remain plaintext in SQLite)
 - background health checks and `tools/list` discovery
 - an operations dashboard at `/dashboard`
 - forensic pack registry with fail-closed digest validation
 - Ed25519 execution-record signing
 - safe maintenance actions (backup, VACUUM, audit pruning, pack reload)
 - Docker sandbox hardening for local forensic packs
+
+### Vercel preview versus persistent backend
+
+The Vercel site for this repository is a **read-only technical preview**.
+Its `api/index.py` serves an informational page, an SVG favicon, and an honest
+`/health` response (`PREVIEW_ONLY`); `/health/ready` and operational API paths
+return HTTP 503. The Vercel preview **does not execute MCP tools, accept forensic
+evidence, or persist jobs, signing keys, tokens, and audit records**.
+
+This separation is intentional: `core.main` initializes a writable SQLite
+database and a persistent Ed25519 private key on import. Vercel Functions run
+with a read-only deployment filesystem and non-durable instance state. Moving
+these security-critical files to `/tmp` would make identity and evidence records
+unreliable. The full MCP service must run on a persistent, separately secured
+host per [production deployment guidance](docs/deployment/PRODUCTION.md).
+
+The preview can be smoke-tested with `pytest -q tests/integration/test_vercel_preview.py`.
+It is **not** proof of a production backend or a release of the forensic engine.
 
 ## 1. Fastest VPS start
 

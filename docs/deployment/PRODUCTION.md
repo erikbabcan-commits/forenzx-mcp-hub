@@ -1,5 +1,12 @@
 # Production Deployment (single node / VPS)
 
+> **Vercel limitation:** The repository's `api/index.py` is intentionally a
+> stateless, read-only portfolio preview, not a production deployment of
+> `core.main`. It returns HTTP 503 for MCP/maintenance operations. Do not point
+> real forensic clients or evidence uploaders at Vercel. Durable SQLite, Ed25519
+> signing keys, isolated workers, and audit trails require the persistent host
+> configured below. Vercel `READY` only means the preview function built.
+
 ## Requirements
 
 - Docker + Docker Compose

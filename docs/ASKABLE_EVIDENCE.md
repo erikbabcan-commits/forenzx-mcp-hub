@@ -34,6 +34,18 @@ rights to the imported base code, any external data or contributions.
 
 ## Verification scope
 
+### Vercel preview correction (2026-10-30)
+
+Vercel deployment `dpl_EQvmgfHPjJaVC8Re2AY8U1Xnkyps` reported build
+`READY`, but runtime requests to `/` and `/favicon.ico` failed with
+`FUNCTION_INVOCATION_FAILED`. Runtime logs identified `OSError: [Errno 30]
+Read-only file system: 'data'` during `core.config.AppConfig` initialization.
+The Vercel entrypoint now serves a stateless portfolio preview, an SVG favicon
+and an explicit `PREVIEW_ONLY` health status. All real MCP operational endpoints
+return 503; `core.main` remains the persistent/VPS entrypoint. See
+`tests/integration/test_vercel_preview.py` for an import-boundary check and HTTP
+tests. This is **not** proof of a functional hosted MCP backend.
+
 The PR-only `CI` workflow includes Poetry install, lock check, compileall,
 ruff, mypy, pytest, security scan, Docker Compose validation and image build.
 This draft adds optional `workflow_dispatch` for manual main-HEAD validation;
