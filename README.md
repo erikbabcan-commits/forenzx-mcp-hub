@@ -302,3 +302,17 @@ make verify
 The protocol tests exercise initialization, tool listing/calls and negative
 access behavior locally; actual forensic pack execution requires its separate
 Docker/sandbox verification. Never supply real evidence to the examples.
+
+## Registry credentials and external code reuse
+
+Custom MCP header values are omitted from the proposed registry API projection
+and version 2 inventory export; these expose header **names** and a presence
+flag only. Existing API clients must review this contract change before
+merging. Outbound remote MCP requests still use the configured headers.
+**At-rest encryption is not provided by this change:** header values remain
+in the SQLite `custom_headers_json` column. Treat database/backups as sensitive.
+
+`LICENSE-TODO.md` records an unresolved licensing blocker. This README does
+not authorize external reuse, including AI training tasks. See the
+[change/evidence map](docs/ASKABLE_EVIDENCE.md) for candidate PRs, verification
+commands and owner decisions still required.
