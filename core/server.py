@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, cast
 
 from fastapi import HTTPException
 
-from core.acl import CaseAccessController, TokenUser
+from core.acl import CaseAccessController, TokenUser, enforce_tool_permission
 from core.config import config
 from core.jobs import job_manager
 from core.models.forensic import AnalysisState, EvidenceInputSpec
@@ -111,6 +111,7 @@ class MCPServer:
 
     async def handle_tool_call(self, name: str, args: Dict[str, Any], user: TokenUser) -> Dict[str, Any]:
         name = self.ALIASES.get(name, name)
+        enforce_tool_permission(user, name)
 
         if name == "forenzx_health":
             return {
@@ -278,7 +279,15 @@ class MCPServer:
                 return json.dumps({"jsonrpc": "2.0", "id": req_id, "result": {}})
 
             if method == "tools/list":
-                return json.dumps({"jsonrpc": "2.0", "id": req_id, "result": {"tools": await self.list_tools_schema()}})
+                tools = await self.list_tools_schema()
+                permitted = []
+                for tool in tools:
+                    try:
+                        enforce_tool_permission(user, tool["name"])
+                    except HTTPException:
+                        continue
+                    permitted.append(tool)
+                return json.dumps({"jsonrpc": "2.0", "id": req_id, "result": {"tools": permitted}})
 
             if method == "tools/call":
                 name = params.get("name")
