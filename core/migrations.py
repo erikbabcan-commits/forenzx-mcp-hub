@@ -102,6 +102,21 @@ MIGRATIONS: List[MigrationStep] = [
         ALTER TABLE registry_events ADD COLUMN trace_id TEXT;
         """,
     ),
+    (
+        3,
+        "reporter_lifecycle_and_case_acl",
+        """
+        CREATE TABLE case_acl (
+            case_id TEXT PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            org_id TEXT NOT NULL
+        );
+        CREATE TABLE revoked_reporter_tokens (
+            token_sha256 TEXT PRIMARY KEY,
+            revoked_at TEXT NOT NULL
+        );
+    """,
+    ),
 ]
 
 LATEST_VERSION = MIGRATIONS[-1][0] if MIGRATIONS else 0

@@ -77,25 +77,30 @@ class CaseAccessProvider(ABC):
 
 class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
     """
-    Production-ready case access provider.
-    In this implementation, we use a configuration-based approach
-    that can be backed by a real database in production.
+    In-memory policy implementation retained for isolated tests and callers.
+    The global Hub provider below overrides lookups with durable SQL queries.
 
     FAIL-CLOSED: Unknown cases/ jobs DENY access.
     """
 
     def __init__(self):
-        # In production, this would query a database
-        # For now, we use an empty dict - DENY by default
+        # Unknown entries deny access.
         self._case_acl: Dict[str, Dict[str, Any]] = {}
         self._job_ownership: Dict[str, Dict[str, Any]] = {}
+
+    def _case_info(self, case_id: str):
+        return self._case_acl.get(case_id)
+
+    def _job_info(self, job_id: str):
+        return self._job_ownership.get(job_id)
 
     def can_access_case(self, user: TokenUser, case_id: str) -> bool:
         """Check if user can access a case. FAIL-CLOSED: unknown case = DENY."""
         if user.is_reporter:
-            case_info = self._case_acl.get(case_id)
+            case_info = self._case_info(case_id)
             return bool(
-                user.organization and case_info
+                user.organization
+                and case_info
                 and case_id in user.report_case_ids
                 and case_info.get("org_id") == user.organization
             )
@@ -107,7 +112,7 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
             return True
 
         # Check if case exists
-        case_info = self._case_acl.get(case_id)
+        case_info = self._case_info(case_id)
         if case_info is None:
             logger.critical(f"ACCESS DENIED: Case {case_id} not found. User {user.user_id} denied.")
             return False
@@ -128,9 +133,11 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
     def can_access_job(self, user: TokenUser, job_id: str, case_id: Optional[str] = None) -> bool:
         """Check if user can access a job. FAIL-CLOSED: unknown job = DENY."""
         if user.is_reporter:
-            job_info = self._job_ownership.get(job_id)
+            job_info = self._job_info(job_id)
             return bool(
-                user.organization and job_info and case_id
+                user.organization
+                and job_info
+                and case_id
                 and job_id in user.report_job_ids
                 and job_info.get("case_id") == case_id
                 and job_info.get("org_id") == user.organization
@@ -143,7 +150,7 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
             return True
 
         # Check if job exists
-        job_info = self._job_ownership.get(job_id)
+        job_info = self._job_info(job_id)
         if job_info is None:
             logger.critical(f"ACCESS DENIED: Job {job_id} not found. User {user.user_id} denied.")
             return False
@@ -168,21 +175,21 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
 
     def get_case_owner(self, case_id: str) -> Optional[str]:
         """Get case owner or None."""
-        case_info = self._case_acl.get(case_id)
+        case_info = self._case_info(case_id)
         if case_info:
             return case_info.get("owner_id")
         return None
 
     def get_case_organization(self, case_id: str) -> Optional[str]:
         """Get case organization or None."""
-        case_info = self._case_acl.get(case_id)
+        case_info = self._case_info(case_id)
         if case_info:
             return case_info.get("org_id")
         return None
 
     def get_job_owner(self, job_id: str) -> Optional[Tuple[str, str]]:
         """Get (owner_id, org_id) for job or None."""
-        job_info = self._job_ownership.get(job_id)
+        job_info = self._job_info(job_id)
         if job_info:
             owner_id = job_info.get("owner_id")
             org_id = job_info.get("org_id")
@@ -200,7 +207,37 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
 
 
 # Global access provider instance
-case_access_provider: DatabaseBackedCaseAccessProvider = DatabaseBackedCaseAccessProvider()
+class PersistentCaseAccessProvider(DatabaseBackedCaseAccessProvider):
+    """Read current durable grants on every authorization decision."""
+
+    def _case_info(self, case_id: str):
+        from core.db import db
+
+        return db.fetchone("SELECT owner_id, org_id FROM case_acl WHERE case_id=?", (case_id,))
+
+    def _job_info(self, job_id: str):
+        from core.db import db
+
+        return db.fetchone("SELECT owner_id, organization_id AS org_id, case_id FROM jobs WHERE job_id=?", (job_id,))
+
+    def register_case(self, case_id: str, owner_id: str, org_id: str) -> None:
+        from core.db import db
+
+        # Existing ownership is immutable here: an unrelated registration must
+        # never silently move a case across tenants.
+        with db.connect() as conn:
+            conn.execute("INSERT OR IGNORE INTO case_acl VALUES (?, ?, ?)", (case_id, owner_id, org_id))
+            row = conn.execute("SELECT owner_id, org_id FROM case_acl WHERE case_id=?", (case_id,)).fetchone()
+            if tuple(row) != (owner_id, org_id):
+                raise ValueError("Case ownership conflict")
+
+    def register_job(self, job_id: str, owner_id: str, org_id: str, case_id: str) -> None:
+        # Jobs are already committed by AsyncJobManager before this hook.
+        # Authorization reads that same authoritative row directly.
+        pass
+
+
+case_access_provider: DatabaseBackedCaseAccessProvider = PersistentCaseAccessProvider()
 
 
 class CaseAccessController:

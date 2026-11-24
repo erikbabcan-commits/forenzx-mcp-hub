@@ -43,6 +43,8 @@ class TestCleanBootstrap:
             "jobs",
             "job_results",
             "schema_migrations",
+            "case_acl",
+            "revoked_reporter_tokens",
         ):
             assert expected in tables
 
@@ -113,6 +115,9 @@ class TestMigrations:
         assert version == LATEST_VERSION
         rows = conn.execute("SELECT job_id FROM jobs").fetchall()
         assert [r["job_id"] for r in rows] == ["legacy-job"]
+        # Historical jobs must not silently grant case access during migration.
+        assert conn.execute("SELECT count(*) FROM case_acl").fetchone()[0] == 0
+        assert conn.execute("SELECT count(*) FROM revoked_reporter_tokens").fetchone()[0] == 0
         conn.close()
 
     def test_migration_v2_adds_trust_and_trace_columns(self, tmp_path):
