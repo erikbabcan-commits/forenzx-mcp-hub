@@ -48,6 +48,11 @@ PREVIEW_HTML = """<!doctype html>
     li + li { margin-top: 8px; }
     ul { padding-left: 22px; color: #b9c6d6; }
     a { color: #83dfec; overflow-wrap: anywhere; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+    .actions a { display: inline-flex; align-items: center; padding: 12px 16px;
+      border: 1px solid #5c7c73; border-radius: 10px; font-weight: 650; }
+    .actions a:first-child { background: #72e4c2; color: #10151e; }
+    ol { padding-left: 22px; color: #b9c6d6; overflow-wrap: anywhere; }
     code { color: #b8f1db; }
     small { color: #8da0b6; }
   </style>
@@ -56,29 +61,34 @@ PREVIEW_HTML = """<!doctype html>
 <main>
   <div class="eyebrow">VORKEI / ForenZX Engineering</div>
   <h1>ForenZX MCP Hub</h1>
-  <p class="lead">A forensic MCP control-plane prototype with remote server registry,
-    integrity checks, authorization boundaries, and deterministic tests.</p>
+  <p class="lead">Connect your MCP client to a ForenZX instance you control.
+    Check the status of a forensic analysis, retrieve its findings, and inspect
+    the execution record.</p>
   <span class="badge">Read-only technical preview</span>
+  <nav class="actions" aria-label="Get started">
+    <a href="https://github.com/erikbabcan-commits/forenzx-mcp-hub/blob/main/docs/deployment/PRODUCTION.md">Read the self-hosting guide</a>
+    <a href="/health">Check preview health</a>
+  </nav>
 
   <section>
-    <h2>What this preview shows</h2>
-    <ul>
-      <li>The public project identity and its implementation scope.</li>
-      <li>A stateless deployment health endpoint: <a href="/health"><code>/health</code></a>.</li>
-      <li>The source, tests and change history in
-        <a href="https://github.com/erikbabcan-commits/forenzx-mcp-hub">the GitHub repository</a>.</li>
-    </ul>
+    <h2>Review an existing analysis</h2>
+    <ol>
+      <li>Connect an authorized MCP client to your own Hub and select an existing <code>job_id</code>.</li>
+      <li>Call <code>forenzx_analysis_status</code> to check progress.</li>
+      <li>When the job is completed, call <code>forenzx_analysis_results</code> to retrieve findings, warnings, limitations and the execution record.</li>
+    </ol>
+    <p>This public preview does not accept evidence or credentials. Run this workflow on your own authorized instance.</p>
   </section>
 
   <section>
-    <h2>Why is the forensic API disabled here?</h2>
-    <p>Real MCP operations depend on persistent SQLite, Ed25519 keys, a worker pool,
-      and isolated execution. Vercel Functions do not provide the required durable
-      filesystem or worker lifecycle. The application backend remains intended
-      for a separately configured persistent host.</p>
-    <p>Requests to operational endpoints return <code>503 PREVIEW_ONLY</code>.
-      This page is not a production deployment or a hosted evidence-processing demo.
-      Do not upload evidence, credentials or personal data to this preview.</p>
+    <h2>Run your own Hub</h2>
+    <p>Use a persistent host with writable SQLite storage, a persistent Ed25519
+      signing key and HTTPS. Forensic execution also requires configured isolated
+      workers, approved packs and approved threat-intelligence inputs.</p>
+    <p>This page is not a production deployment. Its health endpoint reports
+      <code>PREVIEW_ONLY</code>; operational routes and backend readiness return
+      HTTP 503. Explore the source and tests in
+      <a href="https://github.com/erikbabcan-commits/forenzx-mcp-hub">the GitHub repository</a>.</p>
   </section>
   <p><small>Licensing and external code-reuse rights remain subject to owner review.</small></p>
 </main>

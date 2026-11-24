@@ -1,6 +1,19 @@
 # ForenZX MCP Hub v5
 
-A low-maintenance forensic MCP control plane built on the original ForenZX v4 core.
+A forensic MCP control plane built on the original ForenZX v4 core. Connect an
+authorized MCP client to a ForenZX instance you control to check analysis status,
+retrieve completed findings, and inspect execution records.
+
+## Start here
+
+| Goal | First step | Expected result |
+| --- | --- | --- |
+| Explore the public preview | Open [forenzx-mcp-hub.vercel.app](https://forenzx-mcp-hub.vercel.app/) | Home page loads and [preview health](https://forenzx-mcp-hub.vercel.app/health) reports `PREVIEW_ONLY`. |
+| Run your own Hub (owner-authorized deployment) | Follow [VPS setup](#1-vps-start) and the [deployment guide](docs/deployment/PRODUCTION.md). | The process responds at `/health/live` and the authorized administrator can open `/dashboard`. |
+| Connect an MCP client | Follow [MCP endpoint](#4-mcp-endpoint) on your persistent instance. | Initialization and tool discovery succeed; an authorized client can retrieve its completed analysis by job ID. |
+
+External deployment and redistribution remain subject to the unresolved
+[license decision](LICENSE-TODO.md).
 
 It combines:
 
@@ -34,25 +47,45 @@ host per [production deployment guidance](docs/deployment/PRODUCTION.md).
 The preview can be smoke-tested with `pytest -q tests/integration/test_vercel_preview.py`.
 It is **not** proof of a production backend or a release of the forensic engine.
 
-## 1. Fastest VPS start
+## 1. VPS start
+
+On the persistent host, with Git, Python 3.11+ and Docker Compose installed,
+obtain an authorized checkout. The repository currently provides source rather
+than a verified downloadable release ZIP.
 
 ```bash
-unzip forenzx-mcp-hub-v5.zip
-cd forenzx-mcp-hub-v5
-./scripts/first_run.sh
-nano .env                 # set ALLOWED_ORIGINS and review paths
-docker compose up -d --build
+git clone https://github.com/erikbabcan-commits/forenzx-mcp-hub.git
+cd forenzx-mcp-hub
+cp -n .env.example .env
+chmod 600 .env
 ```
 
-Open:
+Before starting, replace every `CHANGE_ME` value using independent random
+secrets, review paths and set `ALLOWED_ORIGINS` to your HTTPS origin.
+The first-run helper does not substitute the current JWT and HMAC placeholder
+strings; complete those fields manually. Follow the deployment guide for
+network isolation and TLS before exposing the service.
+
+```bash
+docker compose config --quiet
+docker compose up -d --build
+curl --fail http://127.0.0.1:8000/health/live
+```
+
+Open the dashboard through the configured HTTPS reverse proxy:
 
 ```text
-http://YOUR_SERVER:8000/dashboard
+https://YOUR_HOST/dashboard
 ```
 
-Use the admin key generated in `.env` under `ADMIN_API_KEYS`.
+Use your configured admin key from `ADMIN_API_KEYS`.
 
 > Put the service behind HTTPS (Caddy/nginx/Traefik) before exposing it publicly.
+
+The default Compose configuration starts the control plane and persists
+SQLite and the Ed25519 key under `/data`. Actual forensic execution additionally
+requires configured workers with Docker access, valid approved image digests,
+and approved STIX input digests as described in the deployment guide.
 
 ## 2. Local development
 
@@ -60,7 +93,7 @@ Use the admin key generated in `.env` under `ADMIN_API_KEYS`.
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
-ENVIRONMENT=development python -m core.main
+ENVIRONMENT=development uvicorn core.main:app --host 127.0.0.1 --port 8000
 ```
 
 Development defaults when no `.env` exists:
@@ -115,18 +148,20 @@ Tracks registry changes, probes, restarts, pack changes and maintenance actions.
 
 ## 4. MCP endpoint
 
-New clients should use:
+Configure your compatible MCP client with the HTTPS URL of your own persistent
+Hub and credentials issued for your authorized scope. Example transport settings
+(replace placeholders and keep credentials in the client's secret storage):
 
 ```text
-POST /mcp
+POST https://YOUR_HOST/mcp
 MCP-Protocol-Version: 2026-07-28
-Authorization: Bearer ...
+Authorization: Bearer <YOUR_AUTHORIZED_TOKEN>
 ```
 
 or:
 
 ```text
-X-API-Key: ...
+X-API-Key: <YOUR_AUTHORIZED_API_KEY>
 ```
 
 Core tools:
@@ -140,6 +175,17 @@ Core tools:
 - `forenzx_analysis_results`
 
 Legacy v4 tool aliases remain accepted so an older client does not break immediately.
+
+For an existing authorized analysis, initialize the connection, discover tools
+and call `forenzx_analysis_status` with its `job_id`. Once completed, call
+`forenzx_analysis_results` with the same ID. The result includes findings,
+warnings, limitations and the execution record. Ed25519 signs the canonical
+execution-record payload (including case/evidence IDs, input and IOC digests,
+pack/container information, command, exit code and timestamps). This signature
+does not cover the entire result JSON or establish the accuracy of every finding.
+Production reporter credential lifecycle and restoration of case access after
+restart remain open; see [reporter authorization PR #29](https://github.com/erikbabcan-commits/forenzx-mcp-hub/pull/29)
+and [operational evidence PR #30](https://github.com/erikbabcan-commits/forenzx-mcp-hub/pull/30).
 
 ## 5. Remote MCP registry
 
@@ -303,11 +349,10 @@ trace id. See
 
 ## Verification and demo scope
 
-This repository is a prototype/control-plane reference, not a security
-certification or a claim of a working hosted API. The configured GitHub homepage
-returned HTTP 404 during a read-only check on 2026-10-22; use the repository
-documentation until the owner verifies a replacement. Homepage metadata is not
-changed by this PR and a failed homepage does not prove the API is down.
+This repository is a prototype/control-plane reference. The public
+[Vercel preview](https://forenzx-mcp-hub.vercel.app/) provides project information
+and stateless health only. The tests below exercise local code; live forensic
+execution and operational readiness require separate verification.
 
 Reproduce with synthetic data only:
 
@@ -323,10 +368,9 @@ Docker/sandbox verification. Never supply real evidence to the examples.
 
 ## Registry credentials and external code reuse
 
-Custom MCP header values are omitted from the proposed registry API projection
+Custom MCP header values are omitted from the registry API projection
 and version 2 inventory export; these expose header **names** and a presence
-flag only. Existing API clients must review this contract change before
-merging. Outbound remote MCP requests still use the configured headers.
+flag only. Outbound remote MCP requests still use the configured headers.
 **At-rest encryption is not provided by this change:** header values remain
 in the SQLite `custom_headers_json` column. Treat database/backups as sensitive.
 

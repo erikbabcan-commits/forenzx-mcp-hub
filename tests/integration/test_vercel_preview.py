@@ -21,6 +21,10 @@ async def test_preview_root_and_favicon_are_served_without_persistent_storage():
         assert "Read-only technical preview" in page.text
         assert 'href="/favicon.svg"' in page.text
         assert "not a production deployment" in page.text
+        assert 'href="https://github.com/erikbabcan-commits/forenzx-mcp-hub/blob/main/docs/deployment/PRODUCTION.md"' in page.text
+        assert 'href="/health">Check preview health</a>' in page.text
+        assert page.text.index("forenzx_analysis_status") < page.text.index("forenzx_analysis_results")
+        assert "does not accept evidence or credentials" in page.text
 
         icon_redirect = await client.get("/favicon.ico", follow_redirects=False)
         assert icon_redirect.status_code == 307

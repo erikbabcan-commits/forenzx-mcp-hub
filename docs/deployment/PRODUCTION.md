@@ -36,7 +36,10 @@
    make docker-build
    docker compose up -d
    ```
-4. First run: `scripts/first_run.sh` guidance / dashboard bootstrap.
+4. Use the admin key configured in `.env` to open the dashboard through
+   the configured HTTPS proxy. The first-run helper is optional and does
+   not replace the current JWT/HMAC placeholders; complete step 1 before
+   starting the service.
 5. Verify: dashboard reachable, `make db-check` green, create a test job,
    run `make backup` and confirm the manifest.
 
