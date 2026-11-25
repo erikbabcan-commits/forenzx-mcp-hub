@@ -95,7 +95,8 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
         if user.is_reporter:
             case_info = self._case_acl.get(case_id)
             return bool(
-                user.organization and case_info
+                user.organization
+                and case_info
                 and case_id in user.report_case_ids
                 and case_info.get("org_id") == user.organization
             )
@@ -130,7 +131,9 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
         if user.is_reporter:
             job_info = self._job_ownership.get(job_id)
             return bool(
-                user.organization and job_info and case_id
+                user.organization
+                and job_info
+                and case_id
                 and job_id in user.report_job_ids
                 and job_info.get("case_id") == case_id
                 and job_info.get("org_id") == user.organization
