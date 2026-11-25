@@ -30,14 +30,14 @@ class TestCaseAccessProvider:
 
     def test_unknown_case_denies_access(self, fresh_acl):
         """Unknown case MUST DENY access."""
-        user = TokenUser(user_id="test_user", roles=[], organization="test_org")
+        user = TokenUser(user_id="test_user", roles=["analyst"], organization="test_org")
 
         result = fresh_acl.can_access_case(user, "UNKNOWN-CASE")
         assert result is False
 
     def test_unknown_job_denies_access(self, fresh_acl):
         """Unknown job MUST DENY access."""
-        user = TokenUser(user_id="test_user", roles=[], organization="test_org")
+        user = TokenUser(user_id="test_user", roles=["analyst"], organization="test_org")
 
         result = fresh_acl.can_access_job(user, "unknown-job-id")
         assert result is False
@@ -56,7 +56,7 @@ class TestCaseAccessProvider:
         """Case owner can access their own case."""
         fresh_acl.register_case(case_id="CASE-001", owner_id="owner_1", org_id="org_1")
 
-        owner = TokenUser(user_id="owner_1", roles=[], organization="org_1")
+        owner = TokenUser(user_id="owner_1", roles=["analyst"], organization="org_1")
 
         assert fresh_acl.can_access_case(owner, "CASE-001") is True
 
@@ -64,7 +64,7 @@ class TestCaseAccessProvider:
         """User in same organization can access case."""
         fresh_acl.register_case(case_id="CASE-001", owner_id="owner_1", org_id="org_1")
 
-        colleague = TokenUser(user_id="colleague", roles=[], organization="org_1")
+        colleague = TokenUser(user_id="colleague", roles=["analyst"], organization="org_1")
 
         assert fresh_acl.can_access_case(colleague, "CASE-001") is True
 
@@ -72,7 +72,7 @@ class TestCaseAccessProvider:
         """User in different organization is DENIED."""
         fresh_acl.register_case(case_id="CASE-001", owner_id="owner_1", org_id="org_1")
 
-        outsider = TokenUser(user_id="outsider", roles=[], organization="org_2")
+        outsider = TokenUser(user_id="outsider", roles=["analyst"], organization="org_2")
 
         assert fresh_acl.can_access_case(outsider, "CASE-001") is False
 
@@ -80,7 +80,7 @@ class TestCaseAccessProvider:
         """Job owner can access their own job."""
         fresh_acl.register_job(job_id="job-123", owner_id="owner_1", org_id="org_1", case_id="CASE-001")
 
-        owner = TokenUser(user_id="owner_1", roles=[], organization="org_1")
+        owner = TokenUser(user_id="owner_1", roles=["analyst"], organization="org_1")
 
         assert fresh_acl.can_access_job(owner, "job-123") is True
 
@@ -89,7 +89,7 @@ class TestCaseAccessProvider:
         fresh_acl.register_case(case_id="CASE-001", owner_id="owner_1", org_id="org_1")
         fresh_acl.register_job(job_id="job-123", owner_id="owner_1", org_id="org_1", case_id="CASE-001")
 
-        colleague = TokenUser(user_id="colleague", roles=[], organization="org_1")
+        colleague = TokenUser(user_id="colleague", roles=["analyst"], organization="org_1")
 
         # Should have access via case
         assert fresh_acl.can_access_job(colleague, "job-123", case_id="CASE-001") is True
@@ -102,7 +102,7 @@ class TestCaseAccessController:
         """Enforce raises 403 for unknown case."""
         monkeypatch.setattr("core.acl.case_access_provider", fresh_acl)
 
-        user = TokenUser(user_id="test_user", roles=[], organization="test_org")
+        user = TokenUser(user_id="test_user", roles=["analyst"], organization="test_org")
 
         with pytest.raises(HTTPException) as exc_info:
             CaseAccessController.enforce(user, "UNKNOWN-CASE")
@@ -114,7 +114,7 @@ class TestCaseAccessController:
         fresh_acl.register_case(case_id="CASE-001", owner_id="test_user", org_id="test_org")
         monkeypatch.setattr("core.acl.case_access_provider", fresh_acl)
 
-        user = TokenUser(user_id="test_user", roles=[], organization="test_org")
+        user = TokenUser(user_id="test_user", roles=["analyst"], organization="test_org")
 
         # Should not raise
         CaseAccessController.enforce(user, "CASE-001")
@@ -133,7 +133,7 @@ class TestCaseAccessController:
         fresh_acl.register_job(job_id="job-123", owner_id="owner_1", org_id="org_1", case_id="CASE-001")
         monkeypatch.setattr("core.acl.case_access_provider", fresh_acl)
 
-        user = TokenUser(user_id="outsider", roles=[], organization="org_2")
+        user = TokenUser(user_id="outsider", roles=["analyst"], organization="org_2")
 
         with pytest.raises(HTTPException) as exc_info:
             CaseAccessController.enforce_job_access(user, "job-123")

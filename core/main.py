@@ -145,6 +145,8 @@ class AuthConfig:
             return TokenUser(
                 user_id=str(user_id),
                 roles=[str(x) for x in roles],
+                report_case_ids=payload.get("report_case_ids", []),
+                report_job_ids=payload.get("report_job_ids", []),
                 organization=str(payload.get("organization") or payload.get("org") or "default_org"),
             )
         except Exception:

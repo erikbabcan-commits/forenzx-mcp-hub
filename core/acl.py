@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple
 
 from fastapi import HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StrictStr
 
 from core.utils.logger import get_logger
 
@@ -19,6 +19,23 @@ class TokenUser(BaseModel):
     user_id: str
     roles: list[str]
     organization: str | None = "default_org"
+    report_case_ids: list[StrictStr] = Field(default_factory=list)
+    report_job_ids: list[StrictStr] = Field(default_factory=list)
+
+    @property
+    def is_reporter(self) -> bool:
+        # Reporter restrictions win even for accidentally mixed-role tokens.
+        return "reporter" in self.roles
+
+
+def enforce_tool_permission(user: TokenUser, name: str) -> None:
+    read_tools = {"forenzx_analysis_status", "forenzx_analysis_results"}
+    if user.is_reporter:
+        allowed = name in read_tools
+    else:
+        allowed = bool({"admin", "analyst"}.intersection(user.roles))
+    if not allowed:
+        raise HTTPException(status_code=403, detail="Tool permission denied")
 
 
 class CaseAccessProvider(ABC):
@@ -75,6 +92,16 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
 
     def can_access_case(self, user: TokenUser, case_id: str) -> bool:
         """Check if user can access a case. FAIL-CLOSED: unknown case = DENY."""
+        if user.is_reporter:
+            case_info = self._case_acl.get(case_id)
+            return bool(
+                user.organization
+                and case_info
+                and case_id in user.report_case_ids
+                and case_info.get("org_id") == user.organization
+            )
+        if not {"admin", "analyst"}.intersection(user.roles):
+            return False
         # Admins can access anything
         if "admin" in user.roles:
             logger.info(f"Admin {user.user_id} accessing case {case_id}")
@@ -101,6 +128,19 @@ class DatabaseBackedCaseAccessProvider(CaseAccessProvider):
 
     def can_access_job(self, user: TokenUser, job_id: str, case_id: Optional[str] = None) -> bool:
         """Check if user can access a job. FAIL-CLOSED: unknown job = DENY."""
+        if user.is_reporter:
+            job_info = self._job_ownership.get(job_id)
+            return bool(
+                user.organization
+                and job_info
+                and case_id
+                and job_id in user.report_job_ids
+                and job_info.get("case_id") == case_id
+                and job_info.get("org_id") == user.organization
+                and self.can_access_case(user, case_id)
+            )
+        if not {"admin", "analyst"}.intersection(user.roles):
+            return False
         # Admins can access anything
         if "admin" in user.roles:
             return True
