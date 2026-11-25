@@ -70,3 +70,11 @@ SSRF/egress protection lands, restrict outbound access at the network layer
 3. `docker compose up -d` — versioned migrations apply automatically
 4. `make db-check`; verify recovery/jobs state in the dashboard
 5. Rollback = restore backup per docs/operations/BACKUP_RESTORE.md
+
+Migration 3 persists reporter case registrations and credential revocations in
+`DATABASE_PATH`. See [reporter operator workflow](../REPORTER_AUTHORIZATION.md)
+before enabling reporter access. Historical jobs do not automatically register
+their cases. All serving processes must share the migrated database and enforce
+the revocation check. An older backup or binary can undo this protection; reconcile
+revocations or rotate the JWT signing secret before restoring access. The local
+synthetic lifecycle tests are not deployment approval.

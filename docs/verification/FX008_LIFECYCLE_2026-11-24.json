@@ -1,0 +1,72 @@
+{
+  "scope": "FX008_SYNTHETIC_REPORTER_LIFECYCLE",
+  "date": "2026-11-24",
+  "environment": "Codex Work Linux, Python 3.12.14",
+  "repository": "erikbabcan-commits/forenzx-mcp-hub",
+  "base_sha": "3b4effdb08cda68f733c56d995ccb54380729e8b",
+  "base_branch": "fix/fx008-reporter-authorization",
+  "dependencies": "poetry install --with dev using committed poetry.lock; Poetry 2.5.1",
+  "source_sha256": {
+    "core/acl.py": "87a028e4773511e424edb18cd37b5629bbf8f0214e662682839d4a4f56f0d338",
+    "core/main.py": "d4849a07dfd5acb9eaa738d39caf6d2868abf7f63838e464b0fda57e95d64001",
+    "core/migrations.py": "ccdeac5b943f465043ee9d183b5b6a66087af3a00016dab478e9eb7eb894ee31",
+    "core/reporter_credentials.py": "1a88579482ced0aa17cf88474484d3b660eb021d44da770f696b8ee02d22391b",
+    "tests/security/test_reporter_lifecycle.py": "6d8a7859b128f55e7c91b0adb211a9c2ee77dd0db222b74e6aae54fc3cf7147c",
+    "tests/security/test_database_baseline.py": "ee61e966a38a003f1f2023a81bd0c70bb359848c7d1737662863e95f93da3a98",
+    "scripts/check_reporter_authorization.py": "0f0faf169c008dc6706ed9290567f646426a5b6f978d72c5383a8a4f0758bde6",
+    "poetry.lock": "e5b003182415abb4b7f0af6a4d697dc82d0649aa47b498464b2ea1b0142cb3c4"
+  },
+  "tests": {
+    "command": "poetry run python scripts/check_reporter_authorization.py tests -q",
+    "passed": 314,
+    "failed": 0,
+    "new_lifecycle_tests": 17,
+    "warnings": 1,
+    "warning": "Starlette TestClient httpx deprecation",
+    "lint": "ruff check .: PASS",
+    "format": "ruff format --check .: PASS (103 files)",
+    "types": "mypy core: PASS (18 source files)",
+    "compile": "python -m compileall -q core packs workers tests scripts: PASS",
+    "security_scan": "python scripts/security_scan.py: 0 findings",
+    "lock_check": "poetry check --lock: exit 0, existing duplicate/deprecated metadata warnings"
+  },
+  "process_test": {
+    "transport": "real loopback HTTP to Uvicorn, lifespan disabled",
+    "routes": [
+      "/mcp",
+      "/mcp/jsonrpc"
+    ],
+    "tools": [
+      "forenzx_analysis_status",
+      "forenzx_analysis_results"
+    ],
+    "before_revocation": {
+      "token_a": "4/4 HTTP 200 with matching synthetic job",
+      "token_b": "4/4 HTTP 200 with matching synthetic job"
+    },
+    "after_committed_revocation": {
+      "token_a": "4/4 HTTP 401",
+      "token_b": "4/4 HTTP 200 with matching synthetic job"
+    },
+    "after_server_restart_same_sqlite": {
+      "token_a": "4/4 HTTP 401",
+      "token_b": "4/4 HTTP 200 with matching synthetic job"
+    },
+    "secret_check": "Neither issued token appears in either server log",
+    "scope": "Synthetic fixture, OS-privileged local issuance/revocation, no model or forensic engine"
+  },
+  "not_verified": [
+    "Fedora device",
+    "Deployed Hub or public Vercel preview",
+    "Codex MCP CLI integration",
+    "Real Docker engine execution",
+    "Termination of already-authorized requests or open SSE streams",
+    "Distributed SQLite replicas",
+    "Issuance governance or full operator audit trail"
+  ],
+  "release": {
+    "production_approved": false,
+    "backlog_updated": false,
+    "merge_performed": false
+  }
+}

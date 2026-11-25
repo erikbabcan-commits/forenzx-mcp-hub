@@ -142,6 +142,11 @@ class AuthConfig:
                 roles = [roles]
             if not isinstance(roles, list):
                 return None
+            if "reporter" in roles:
+                from core.reporter_credentials import is_revoked
+
+                if is_revoked(token):
+                    return None
             return TokenUser(
                 user_id=str(user_id),
                 roles=[str(x) for x in roles],
