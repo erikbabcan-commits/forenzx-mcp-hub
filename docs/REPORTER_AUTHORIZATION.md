@@ -13,3 +13,11 @@ Existing ordinary API keys remain analyst credentials in `default_org`. They int
 Regression tests: `tests/security/test_reporter.py`, with synthetic fixture `tests/fixtures/reporter-completed-synthetic.json`. No engine, model, network server or real case data is used. Run against an isolated temporary database and storage paths set BEFORE imports; the standard Hub tests create synthetic jobs in configured storage.
 
 The original 53-check FX-008 characterization is pinned to the unmodified baseline. Its historical FAIL is preserved; these regression tests are a separate acceptance suite for the new reporter policy, not a rewrite of baseline evidence.
+
+## Verification on 22 November 2026
+
+The isolated Work run used Hub `3b4effdb08cda68f733c56d995ccb54380729e8b`. The full pytest suite passed 297/297. This includes 77 reporter tests and 12 ACL tests. The suite used synthetic inputs and temporary storage. The PR-triggered CI run reported failure on this commit. These are separate execution environments.
+
+The Release Board probe recorded 13/13 direct HTTP checks against this Hub. The Work Codex CLI 0.172.0-alpha.2 stopped before its first MCP call because its in-process app server encountered a read-only filesystem. The earlier Fedora reporter run with Codex 0.170.0 has separate evidence. The engineering tests cover allowed reads and rejected start/cancel requests for this candidate. Production reporter issuance, immediate revocation, and restoration of case grants after restart remain open. A fresh provider instance starts with an empty in-memory case map.
+
+[Hub candidate and test history](https://github.com/erikbabcan-commits/forenzx-mcp-hub/pull/29) · [CLI and Fedora verification](https://github.com/erikbabcan-commits/forenzx-analysis-brief/pull/3) · [Synthetic pre-model adapter](https://github.com/erikbabcan-commits/forenzx-analysis-brief/pull/4)
